@@ -7,7 +7,7 @@ topics:
   - "mcp"
   - "ubuntu"
   - "ai"
-published: false
+published: true
 ---
 
 最近、**ChatGPT × Remote Desktop Commander × UbuntuミニPC × スマホ**という構成で開発しています。
