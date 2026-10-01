@@ -22,6 +22,8 @@ Remote Desktop Commanderは、ChatGPTなどのAIから、自分のPC上のファ
 
 普通のリモートデスクトップのようにスマホでPC画面を直接操作するのではなく、ChatGPTに「Gitの状態を見て」「テストして」と頼みます。
 
+するとChatGPTがRemote Desktop Commander経由でUbuntuミニPCに接続し、必要なコマンドを実行して結果を読み取ります。たとえばGitなら現在のブランチや差分を確認し、テストなら実際にコマンドを実行して成否やエラー内容まで返してくれます。必要なら、そのまま原因調査や修正まで続けられます。
+
 ```mermaid
 flowchart LR
     A["📱 スマホ<br/>ChatGPT"] --> B["🤖 ChatGPT"]
