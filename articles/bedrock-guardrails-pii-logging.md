@@ -3,7 +3,7 @@ title: "Bedrock Guardrailsで個人情報はどこまで隠せる？"
 emoji: "🔐"
 type: "tech"
 topics: ["aws", "bedrock", "security", "cloudwatch", "個人情報"]
-published: false
+published: true
 ---
 
 > **2026年10月9日（日本時間）時点**のAWS公式ドキュメントに基づく備忘録です。仕様は変わる可能性があります。
