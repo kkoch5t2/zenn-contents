@@ -50,10 +50,18 @@ flowchart TD
 
 ### ① モデルへの入力と回答はマスクできる
 
+**入力側：ユーザー → モデル**
+
 ```mermaid
 flowchart TD
     I1["👤 山田太郎／taro@example.com"] --> G1["🛡️ 入力をマスク"]
     G1 --> I2["🤖 {NAME}／{EMAIL}"]
+```
+
+**出力側：モデル → ユーザー**
+
+```mermaid
+flowchart TD
     O1["🤖 hanako@example.com"] --> G2["🛡️ 出力をマスク"]
     G2 --> O2["💬 {EMAIL}"]
 ```
