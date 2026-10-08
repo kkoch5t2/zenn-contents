@@ -144,7 +144,7 @@ AWSのFAQは、Bedrockの入力・出力をAWSや第三者モデル提供元が�
 ## 参照したAWS公式ドキュメント
 
 [^sensitive]: [Remove PII from conversations by using sensitive information filters — Amazon Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-sensitive-filters.html)。入力・出力のマスク、モデル呼び出しログとトレースの例外、ツール利用時の対象外を確認。
-[^logging]: [CloudWatch Logs と Amazon S3 を使用してモデル呼び出しをモニタリングする — Amazon Bedrock](https://docs.aws.amazon.com/ja_jp/bedrock/latest/userguide/model-invocation-logging.html)。日本語コンソールの項目名、デフォルト設定、保存先、ログ形式、S3への大容量データ保存を確認。
+[^logging]: [Monitor model invocation using CloudWatch Logs and Amazon S3 — Amazon Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/model-invocation-logging.html)。コンソールでの設定手順、デフォルト設定、保存先、ログ形式、S3への大容量データ保存を確認。
 [^cloudwatch]: [Help protect sensitive log data with masking — Amazon CloudWatch Logs](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/mask-sensitive-log-data.html)。閲覧・転送時のマスク、`logs:Unmask`、既存ログへの非遡及を確認。
 [^faq]: [Amazon Bedrock FAQs — Security](https://aws.amazon.com/bedrock/faqs/)。入力・出力の学習利用とモデル提供元への共有について確認。
 [^retention]: [Data retention — Amazon Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/data-retention.html)。AWS側の推論データ保持が、モデル・設定によって異なる点を確認。
