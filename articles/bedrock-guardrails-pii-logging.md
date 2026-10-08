@@ -54,19 +54,18 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    I1["👤 送信前"] --> I2["山田太郎"]
-    I2 --> I3["taro@example.com"]
-    I3 --> G1["🛡️ マスク"]
-    G1 --> I4["🤖 {NAME}／{EMAIL}"]
+    I1["👤 送信前<br/>山田太郎のメールは<br/>taro@example.com です"]
+    I1 --> G1["🛡️ マスク"]
+    G1 --> I2["🤖 モデルへ<br/>{NAME}のメールは<br/>{EMAIL} です"]
 ```
 
 **出力側：モデル → ユーザー**
 
 ```mermaid
 flowchart TD
-    O1["🤖 回答前"] --> O2["hanako@example.com"]
-    O2 --> G2["🛡️ マスク"]
-    G2 --> O3["💬 {EMAIL}"]
+    O1["🤖 マスク前の回答<br/>連絡先は<br/>hanako@example.com です"]
+    O1 --> G2["🛡️ マスク"]
+    G2 --> O2["💬 ユーザーへ<br/>連絡先は<br/>{EMAIL} です"]
 ```
 
 例えば「山田太郎のメールはtaro@example.comです」と入力したとします。対象の個人情報を検出し、入力側のマスクを設定していれば、モデルには氏名やメールアドレスを`{NAME}`や`{EMAIL}`へ置き換えて渡せます。出力側にも設定すれば、回答中の個人情報もマスクできます。`BLOCK`を選べば、内容をブロックすることもできます。[^sensitive]
