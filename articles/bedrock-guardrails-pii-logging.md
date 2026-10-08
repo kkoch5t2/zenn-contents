@@ -1,5 +1,5 @@
 ---
-title: "Bedrock Guardrailsで個人情報はどこまで隠せる？ログには原文が残る"
+title: "Bedrock Guardrailsで個人情報はどこまで隠せる？"
 emoji: "🔐"
 type: "tech"
 topics: ["aws", "bedrock", "security", "cloudwatch", "個人情報"]
