@@ -34,15 +34,15 @@ flowchart TD
     B -.->|"📝 Bedrockのログを有効化"| L["🗄️ 指定したCloudWatchロググループ／S3バケット"]
 ```
 
-点線は、Bedrockの「モデル呼び出しログ」を有効にした場合だけ発生します。この設定は初期状態では無効です。[^logging]
+点線は、Bedrockの「モデル呼び出しログ記録」を有効にした場合だけ発生します。この設定は初期状態では無効です。[^logging]
 
 ### Bedrockのログはどこに保存される？
 
-Bedrockコンソールの「Settings」→「Model invocation logging（モデル呼び出しログ）」で有効にすると、次の保存先を選べます。[^logging]
+日本語表示のAmazon Bedrockコンソールでは、左側のメニューから「設定」を開き、「モデル呼び出しログ記録」を有効にします。続いて、ログの保存先として次のいずれかを選びます。[^logging]
 
-- **CloudWatch Logs**：指定したロググループ内のログイベントに保存。
-- **S3**：指定したバケットに圧縮JSONのログを保存。
-- **両方**：両方へ出力。
+- **Amazon S3のみ**：指定したバケットに圧縮JSONのログを保存。
+- **CloudWatch Logsのみ**：指定したロググループ内のログイベントに保存。
+- **Amazon S3とCloudWatch Logsの両方**：両方へ出力。
 
 **保存先を選んでログを有効にする場所は、CloudWatch LogsもS3もBedrockの設定画面です。** IAMでログのオン・オフを設定するわけではありません。CloudWatch Logsへ出す場合、Bedrockがロググループへ書き込めるIAMロールが別途必要です。S3へ出す場合は、Bedrockがバケットへ書き込めるバケットポリシーが必要です。AWS公式手順では、設定者に所定のS3権限があれば、バケットポリシーは設定時に自動で追加されると説明しています。[^logging]
 
@@ -126,7 +126,7 @@ AWSのFAQは、Bedrockの入力・出力をAWSや第三者モデル提供元が�
 ## 参照したAWS公式ドキュメント
 
 [^sensitive]: [Remove PII from conversations by using sensitive information filters — Amazon Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-sensitive-filters.html)。入力・出力のマスク、モデル呼び出しログとトレースの例外、ツール利用時の対象外を確認。
-[^logging]: [Monitor model invocation using CloudWatch Logs and Amazon S3 — Amazon Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/model-invocation-logging.html)。デフォルト設定、保存先、ログ形式、S3への大容量データ保存を確認。
+[^logging]: [CloudWatch Logs と Amazon S3 を使用してモデル呼び出しをモニタリングする — Amazon Bedrock](https://docs.aws.amazon.com/ja_jp/bedrock/latest/userguide/model-invocation-logging.html)。日本語コンソールの項目名、デフォルト設定、保存先、ログ形式、S3への大容量データ保存を確認。
 [^cloudwatch]: [Help protect sensitive log data with masking — Amazon CloudWatch Logs](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/mask-sensitive-log-data.html)。閲覧・転送時のマスク、`logs:Unmask`、既存ログへの非遡及を確認。
 [^faq]: [Amazon Bedrock FAQs — Security](https://aws.amazon.com/bedrock/faqs/)。入力・出力の学習利用とモデル提供元への共有について確認。
 [^retention]: [Data retention — Amazon Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/data-retention.html)。AWS側の推論データ保持が、モデル・設定によって異なる点を確認。
