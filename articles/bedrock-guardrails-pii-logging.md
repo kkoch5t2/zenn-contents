@@ -6,7 +6,7 @@ topics: ["aws", "bedrock", "security", "cloudwatch", "個人情報"]
 published: false
 ---
 
-> **2026年10月8日（日本時間）時点**のAWS公式ドキュメントに基づく備忘録です。仕様は変わる可能性があります。
+> **2026年10月9日（日本時間）時点**のAWS公式ドキュメントに基づく備忘録です。仕様は変わる可能性があります。
 
 Bedrock Guardrailsの機密情報フィルターを使えば、モデルに渡す個人情報をマスクできます。では、Bedrockの設定画面で有効にできる「モデル呼び出しログ」もマスクされるのでしょうか。
 
@@ -81,17 +81,17 @@ flowchart TD
 
 AWSは、ガードレールを適用しても、CloudWatch Logsのモデル呼び出しログの`input`には次の内容が入ると明記しています。[^sensitive]
 
-> “the original, unmodified request regardless of guardrail intervention”
+> 「Amazon CloudWatch Logs の `input` フィールドには、ガードレールの介入に関係なく、常に変更されていない元のリクエストが含まれます。」
 
 これは、**ガードレールが入力をマスクまたはブロックした場合でも、モデル呼び出しログの`input`には加工前のリクエスト原文が記録される**という意味です。モデルに渡される入力がマスクされても、ログまでマスクされるわけではありません。ガードレールのトレースにある`match`も元のPIIを含み得ます。[^sensitive]
 
 ただし、モデル呼び出しログは最初から保存されるわけではありません。AWSは次のように書いています。[^logging]
 
-> “Model invocation logging is disabled by default.”
+> 「モデル呼び出しログ記録はデフォルトで無効になっています。」
 
 「モデル呼び出しログはデフォルトでは無効」です。有効にしたときは、CloudWatch Logs、S3、または両方に入力・出力などを記録できます。AWSは両保存先のログ形式について、こう説明しています。[^logging]
 
-> “The format is the same for both CloudWatch Logs and Amazon S3 destinations.”
+> 「形式は、CloudWatch Logs と Amazon S3 の送信先の両方で同じです。」
 
 「CloudWatch LogsとS3で形式は同じ」です。AWSが「原文」と明記しているのはCloudWatch Logsについてですが、**同じ形式で保存するS3の呼び出しログにも原文が含まれ得る**と考えるのが妥当です。これは公式文書を組み合わせた推論です。[^logging]
 
@@ -101,7 +101,7 @@ AWSは、ガードレールを適用しても、CloudWatch Logsのモデル呼�
 
 消えません。CloudWatch Logsのデータ保護は、ログを表示・転送するときに検出した情報を隠します。AWSは次のように書いています。[^cloudwatch]
 
-> “Only users who have the `logs:Unmask` IAM permission can view unmasked data.”
+> 「マスクされていないデータを閲覧できるのは、`logs:Unmask` IAMアクセス許可を持つユーザーのみです。」
 
 `logs:Unmask`権限を持つ人には元の値が見えます。つまり、**画面で隠す機能であって、原文を保存しない機能ではありません**。設定前のログにも遡って適用されず、S3へ直接保存したデータも対象外です。[^cloudwatch]
 
@@ -109,9 +109,9 @@ AWSは、ガードレールを適用しても、CloudWatch Logsのモデル呼�
 
 ## 「学習に使われない」ならガードレールは不要？
 
-AWSのFAQは、Bedrockの入力・出力をAWSや第三者モデル提供元がモデル学習に使用せず、モデル提供元へ共有しないと説明しています。学習についての文言は次のとおりです。[^faq]
+AWSのAmazon Bedrock紹介ページは、Bedrockがデータをモデル学習に使用しないと説明しています。文言は次のとおりです。[^faq]
 
-> “will not use any inputs to or outputs from Amazon Bedrock to train”
+> 「Bedrock は、モデルのトレーニングを行うためにデータを保存または使用することはなく」
 
 それでもガードレールには意味があります。**「学習に使わない」と「回答やログから漏れない」は別**だからです。例えば、次の場面で役立ちます。
 
@@ -123,7 +123,7 @@ AWSのFAQは、Bedrockの入力・出力をAWSや第三者モデル提供元が�
 
 また、**「呼び出しログが無効＝AWS側にも一切保持されない」ではありません**。AWS側の推論データ保持は別の設定とモデルごとの条件で決まります。公式文書には、次の注意書きがあります。[^retention]
 
-> “Setting `store=false` does not guarantee zero data retention.”
+> 「`store=false`を設定しても、データ保持がゼロであるとは限りません。」
 
 「`store=false`でもゼロ保持は保証されない」という意味です。保存を禁止する要件がある場合は、対象モデルの保持設定も確認します。[^retention]
 
@@ -143,10 +143,10 @@ AWSのFAQは、Bedrockの入力・出力をAWSや第三者モデル提供元が�
 
 ## 参照したAWS公式ドキュメント
 
-[^sensitive]: [Remove PII from conversations by using sensitive information filters — Amazon Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-sensitive-filters.html)。入力・出力のマスク、モデル呼び出しログとトレースの例外、ツール利用時の対象外を確認。
-[^logging]: [Monitor model invocation using CloudWatch Logs and Amazon S3 — Amazon Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/model-invocation-logging.html)。コンソールでの設定手順、デフォルト設定、保存先、ログ形式、S3への大容量データ保存を確認。
-[^cloudwatch]: [Help protect sensitive log data with masking — Amazon CloudWatch Logs](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/mask-sensitive-log-data.html)。閲覧・転送時のマスク、`logs:Unmask`、既存ログへの非遡及を確認。
-[^faq]: [Amazon Bedrock FAQs — Security](https://aws.amazon.com/bedrock/faqs/)。入力・出力の学習利用とモデル提供元への共有について確認。
-[^retention]: [Data retention — Amazon Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/data-retention.html)。AWS側の推論データ保持が、モデル・設定によって異なる点を確認。
-[^deployment]: [Data protection — Amazon Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/data-protection.html)。モデルはAWSが所有・運用するModel Deployment Accountへ配置され、モデル提供元はその環境や入力・出力へアクセスできないことを確認。
-[^billing]: [Request access to models — Amazon Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access.html)。第三者モデルのAWS Marketplace購読とEULAを確認。
+[^sensitive]: [機密情報フィルターを使用して会話から PII を削除する — Amazon Bedrock](https://docs.aws.amazon.com/ja_jp/bedrock/latest/userguide/guardrails-sensitive-filters.html)。入力・出力のマスク、モデル呼び出しログとトレースの例外、ツール利用時の対象外を確認。
+[^logging]: [CloudWatch Logs と Amazon S3 を使用してモデル呼び出しをモニタリングする — Amazon Bedrock](https://docs.aws.amazon.com/ja_jp/bedrock/latest/userguide/model-invocation-logging.html)。コンソールでの設定手順、デフォルト設定、保存先、ログ形式、S3への大容量データ保存を確認。
+[^cloudwatch]: [機密性の高いログデータをマスキングで保護する — Amazon CloudWatch Logs](https://docs.aws.amazon.com/ja_jp/AmazonCloudWatch/latest/logs/mask-sensitive-log-data.html)。閲覧・転送時のマスク、`logs:Unmask`、既存ログへの非遡及を確認。
+[^faq]: [Amazon Bedrock — AWS](https://aws.amazon.com/jp/bedrock/)。入力データをモデルのトレーニング目的で保存・使用しないことを確認。
+[^retention]: [データ保持 — Amazon Bedrock](https://docs.aws.amazon.com/ja_jp/bedrock/latest/userguide/data-retention.html)。AWS側の推論データ保持が、モデル・設定によって異なる点を確認。
+[^deployment]: [データ保護 — Amazon Bedrock](https://docs.aws.amazon.com/ja_jp/bedrock/latest/userguide/data-protection.html)。モデルはAWSが所有・運用するModel Deployment Accountへ配置され、モデル提供元はその環境や入力・出力へアクセスできないことを確認。
+[^billing]: [モデルへのアクセスをリクエストする — Amazon Bedrock](https://docs.aws.amazon.com/ja_jp/bedrock/latest/userguide/model-access.html)。第三者モデルのAWS Marketplace購読とEULAを確認。
