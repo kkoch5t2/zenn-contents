@@ -95,7 +95,7 @@ AWSは、Bedrock Guardrailsを適用しても、CloudWatch Logsのモデル呼�
 
 > 「形式は、CloudWatch Logs と Amazon S3 の送信先の両方で同じです。」
 
-「CloudWatch LogsとS3で形式は同じ」です。AWSが「原文」と明記しているのはCloudWatch Logsについてですが、**同じ形式で保存するS3の呼び出しログにも原文が含まれ得る**と考えるのが妥当です。これは公式文書を組み合わせた推論です。[^logging]
+「CloudWatch LogsとS3で形式は同じ」です。AWSが「原文」と明記しているのはCloudWatch Logsについてですが、**同じ形式で保存するS3の呼び出しログにも原文が含まれる**と考えるのが妥当です。[^logging]
 
 なお、CloudWatch Logsを選んでも、大きな本文などの保存先にS3を設定していれば、そのデータはS3へ送られます。[^logging]
 
