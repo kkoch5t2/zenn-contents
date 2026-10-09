@@ -1,5 +1,5 @@
 ---
-title: "スマホのChatGPTから自宅PCを操作する。Remote Desktop Commanderを使ってみた"
+title: "スマホのChatGPTから開発できる。Remote Desktop Commanderを使ってみた"
 emoji: "📱"
 type: "tech"
 topics:
