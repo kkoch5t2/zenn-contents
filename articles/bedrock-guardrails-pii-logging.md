@@ -95,7 +95,11 @@ AWSは、Bedrock Guardrailsを適用しても、CloudWatch Logsのモデル呼�
 
 > 「形式は、CloudWatch Logs と Amazon S3 の送信先の両方で同じです。」
 
-「CloudWatch LogsとS3で形式は同じ」です。さらに、AWS公式Security Blogの[「Implementing least privilege access for Amazon Bedrock」](https://aws.amazon.com/blogs/security/implementing-least-privilege-access-for-amazon-bedrock/)（2025年2月公開）でも、CloudWatch LogsとS3をログの保存先として挙げたうえで、**Bedrock Guardrailsを適用しても、モデル呼び出しログにはマスク前のユーザー入力が含まれる**と説明しています。つまり、S3に保存する場合も原文が残るということです。[^logging]
+「CloudWatch LogsとS3で形式は同じ」です。さらに、AWS公式Security Blogの[「Implementing least privilege access for Amazon Bedrock」](https://aws.amazon.com/blogs/security/implementing-least-privilege-access-for-amazon-bedrock/)（2025年2月公開）でも、両方をログの保存先として挙げたうえで、次のように説明しています。
+
+> Even with Amazon Bedrock guardrails in place, the contents of these logs contain the pre-guardrailed user input, ...
+
+「Bedrock Guardrailsを適用していても、ログには適用前のユーザー入力が含まれる」という意味です。**CloudWatch Logsだけでなく、S3のモデル呼び出しログにもマスク前の原文が残る**ことを、AWS公式ブログも明記しています。
 
 最近の検証例としては、QESが2026年9月に公開した[「Claude Apps Gateway経由でAmazon Bedrock Guardrailsが機能するか検証してみた」](https://www.qes.co.jp/media/aws/a1103)も参考になります。架空のGitHubトークンをマスク対象にして試したところ、モデル側ではトークンが別の文字列に置き換わった一方、**モデル呼び出しログにはマスク前のトークンがそのまま記録されていました**。なお、QESの記事で実際のログ画面が掲載されているのはCloudWatch Logs側です。S3については、前述のAWS公式Security Blogの説明が裏付けになります。
 
