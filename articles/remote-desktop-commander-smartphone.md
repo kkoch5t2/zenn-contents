@@ -59,16 +59,15 @@ flowchart LR
 
 使い方はかなりシンプルです。ChatGPTからRemote Desktop Commanderを使える状態にして、あとは普段どおり会話で指示します。
 
-<!-- TODO: ChatGPTからGit確認・テストを頼んでいる実際の画面を追加 -->
+たとえば、自作アプリのセキュリティチェックを頼むなら、次のような流れです。
 
 ```mermaid
-flowchart LR
-    A["Gitの状態を確認"] --> B["差分を見る"]
-    B --> C["必要なら修正"]
-    C --> D["テスト"]
-    D --> E{"問題あり？"}
-    E -- "あり" --> C
-    E -- "なし" --> F["完了"]
+flowchart TD
+    A["👤 私<br/>「自作アプリのセキュリティチェックをして」"]
+    B["🤖 ChatGPT<br/>Remote Desktop Commander経由でUbuntuミニPCを操作"]
+    C["🖥️ UbuntuミニPC<br/>コードや設定ファイルを確認"]
+    D["📋 ChatGPT<br/>確認結果・リスク・対策を報告"]
+    A --> B --> C --> D
 ```
 
 全部を任せる必要はなく、「確認だけ」「原因調査まで」「修正とテストまで」のように区切って使えます。
