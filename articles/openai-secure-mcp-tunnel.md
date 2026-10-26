@@ -37,21 +37,22 @@ ChatGPTは、依頼に合うツールを呼び出し、返ってきた情報を�
 | tunnel-client | 自分のPC側 | OpenAIへ接続して依頼を取得し、設定したMCPサーバーへ転送する |
 | 非公開MCPサーバー | 自分のPC側 | ツールを提供し、受け取った処理を実行する |
 
-次の図は、構成要素を配置先ごとにまとめた全体構成図です。上が自分のPC側、下がOpenAI側です。
+次の図は、構成要素を配置先ごとにまとめた全体構成図です。上が自分のPC側、下がOpenAI側です。通信区間の①②は図4と共通です。
 
 ```mermaid
 flowchart TB
     subgraph PRIVATE["自分のPC側"]
         MCP["非公開MCPサーバー"]
         CLIENT["tunnel-client"]
-        MCP <-->|"stdio または HTTP"| CLIENT
+        MCP <-->|"② stdio または HTTP/HTTPS"| CLIENT
     end
     subgraph OPENAI["OpenAI側"]
         SERVICE["トンネルサービス"]
         PRODUCT["ChatGPT・Codex・Responses API"]
         SERVICE <-->|"MCPリクエスト・結果"| PRODUCT
     end
-    CLIENT -->|"外向きHTTPSで依頼を取得・結果を送信"| SERVICE
+    CLIENT -->|"① HTTPS：接続開始・依頼の問い合わせ・結果の送信"| SERVICE
+    SERVICE -->|"① 問い合わせへの返事として処理依頼を返す"| CLIENT
 ```
 
 **外部（ChatGPTなど）から自分のPCへ直接接続できる入口を設けていないため、自分のPC側からOpenAIへ問い合わせます。ChatGPTからの処理依頼は、その問い合わせへの返事として受け取ります。**
