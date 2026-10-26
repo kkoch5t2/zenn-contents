@@ -177,10 +177,10 @@ sequenceDiagram
 
     Note over SERVER: ③ MCPサーバーが処理を実行する前
     SERVER->>SERVER: トークンの有効性と利用者の操作権限を確認
-    alt 許可された操作
-        SERVER-->>LOCAL: 実行して結果を返す
-    else 許可されていない操作
-        SERVER-->>LOCAL: 実行せずエラーを返す
+    rect rgba(128, 128, 128, 0.08)
+        Note over LOCAL,SERVER: 条件分岐
+        Note over SERVER: 権限あり：操作を実行／権限なし：操作を拒否
+        SERVER-->>LOCAL: 実行結果、または拒否のエラーを返す
     end
 ```
 
@@ -218,13 +218,12 @@ sequenceDiagram
     Note over TLSCLIENT,TLSOPENAI: mTLSを設定した場合は、双方が証明書を確認
 
     Note over TLSCLIENT,TLSSERVER: ② MCPサーバーへの通信
-    alt HTTPSで接続する場合
-        TLSCLIENT->>TLSSERVER: HTTPSで通信を暗号化
-        Note over TLSCLIENT,TLSSERVER: ①とは別にmTLSを設定できる
-    else HTTPで接続する場合
-        TLSCLIENT->>TLSSERVER: HTTPで通信（TLSによる暗号化なし）
-    else stdioで接続する場合
-        TLSCLIENT->>TLSSERVER: 同じPC内の標準入出力で通信（TLSの対象外）
+    rect rgba(128, 128, 128, 0.08)
+        Note over TLSCLIENT,TLSSERVER: 条件分岐：設定した接続方法を使う
+        Note over TLSCLIENT,TLSSERVER: HTTPS：通信を暗号化。mTLSは①とは別に設定できる
+        Note over TLSCLIENT,TLSSERVER: HTTP：TLSによる暗号化なし
+        Note over TLSCLIENT,TLSSERVER: stdio：同じPC内の標準入出力。TLSの対象外
+        TLSCLIENT->>TLSSERVER: HTTPS・HTTP・stdioのいずれかで通信
     end
 ```
 
