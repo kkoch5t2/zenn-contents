@@ -3,7 +3,7 @@ title: "OpenAI Secure MCP Tunnelの仕組みと技術構成"
 emoji: "🔌"
 type: "tech"
 topics: ["openai", "mcp", "network", "chatgpt"]
-published: false
+published: true
 ---
 
 ## Secure MCP Tunnelの概要
