@@ -8,6 +8,12 @@ published: true
 
 ## Secure MCP Tunnelの概要
 
+![OpenAI公式のSecure MCP Tunnelのリクエスト処理の流れ](https://raw.githubusercontent.com/kkoch5t2/zenn-contents/main/images/openai-secure-mcp-tunnel-request-flow.png)
+
+出典：[OpenAI「Secure MCP Tunnel」](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
+
+図中の`tunnel-client`と`Private MCP server`が自分のPC側、`OpenAI product`と`OpenAI tunnel service`がOpenAI側に当たります。
+
 **Secure MCP Tunnelは、非公開のMCPサーバーを、ChatGPTなどのOpenAI製品から利用するための通信の仕組みです。**[^guide]
 
 MCP（Model Context Protocol）は、AIアプリケーションと外部のツールやデータを接続するためのプロトコルです。MCPサーバーは、AIから呼び出せるツールを提供します。[^mcp]
@@ -25,14 +31,6 @@ ChatGPTは、依頼に合うツールを呼び出し、返ってきた情報を�
 こうしたMCPサーバーが自分のPC内や社内ネットワークにあると、クラウド上のChatGPTから直接接続できないことがあります。Secure MCP Tunnelは、ネットワーク内部からOpenAIへ接続し、依頼と結果をやり取りできるようにします。
 
 これにより、MCPサーバーをインターネットへ公開したり、外部から着信するポートを開放したりせずに利用できます。対応する利用先には、ChatGPT、Codex、Responses APIなどがあります。[^guide]
-
-OpenAI公式ドキュメントでは、依頼と結果の流れを次の図で示しています。
-
-![OpenAI公式のSecure MCP Tunnelのリクエスト処理の流れ](https://raw.githubusercontent.com/kkoch5t2/zenn-contents/main/images/openai-secure-mcp-tunnel-request-flow.png)
-
-出典：[OpenAI「Secure MCP Tunnel」](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
-
-図中の`tunnel-client`と`Private MCP server`が自分のPC側、`OpenAI product`と`OpenAI tunnel service`がOpenAI側に当たります。
 
 ## 技術構成要素
 
