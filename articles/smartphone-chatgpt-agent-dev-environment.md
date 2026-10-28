@@ -3,7 +3,7 @@ title: "スマホでエージェント駆動開発"
 emoji: "📱"
 type: "idea"
 topics: ["AIエージェント", "chatgpt", "mcp", "個人開発", "ubuntu"]
-published: false
+published: true
 ---
 
 ## 最近のエージェント駆動開発
