@@ -1,5 +1,5 @@
 ---
-title: "スマホでエージェント駆動開発"
+title: "スマホからエージェント駆動開発"
 emoji: "📱"
 type: "idea"
 topics: ["AIエージェント", "chatgpt", "mcp", "個人開発", "ubuntu"]
