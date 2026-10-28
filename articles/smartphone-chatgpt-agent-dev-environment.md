@@ -212,7 +212,24 @@ https://github.com/kkoch5t2/temptation-block-android
 
 https://github.com/kkoch5t2/routia
 
+
+## 補足：AI駆動開発・エージェント駆動開発・バイブコーディングの違い
+
+似た言葉ですが、注目している点が少し違います。厳密に分かれた分類というより、重なり合う開発スタイルとして考えると分かりやすいです。
+
+| 呼び方 | 特徴 | 具体例 |
+| --- | --- | --- |
+| AI駆動開発 | AIを活用して開発を進める広い考え方。設計の相談やコード生成、レビューなども含む | AIにコードの修正案を出してもらい、人が確認して反映する |
+| エージェント駆動開発 | AIがツールを使い、調査・編集・テストなどの作業を実際に進める | 「不具合を直して」と頼むと、AIがファイルを調べて修正し、テストを実行する |
+| バイブコーディング | 細かなコードの中身を追わず、自然言語で指示し、動いた結果を見ながら作る | 「画面をもっと見やすくして」と頼み、生成された画面を触って追加の修正を依頼する |
+
+今回の環境は、ChatGPTがredecoを通じてPCを操作し、コードの修正やテストまで行うので、**エージェント駆動開発**と呼んでいます。ただし、自分でコードを見る機会が減り、できあがった画面を見て修正を頼む部分は、**バイブコーディング**に近い面もあります。
+
+エージェント駆動開発はAIに作業を実行させる仕組み、バイブコーディングはコードとの向き合い方の違い、と考えると整理しやすいと思います。[^agentic-coding][^vibe-coding]
+
 [^tunnel]: [OpenAI公式：Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)。自宅のMCPサーバーに外部から直接接続する入口を設けず、PC側のクライアントからOpenAIへ接続する仕組みです。
 [^usage]: [OpenAI公式：利用料金と利用上限](https://learn.chatgpt.com/docs/pricing)。Work／Codexの利用枠は、モデルや作業の複雑さなどによって消費量が変わります。本文の使用感は2026年10月時点の個人の体感です。
 [^workers-pricing]: [Cloudflare公式：Workersの料金](https://developers.cloudflare.com/workers/platform/pricing/)。無料プランのリクエスト数とCPU時間の上限を参照。
 [^workers-limits]: [Cloudflare公式：Workersの制限](https://developers.cloudflare.com/workers/platform/limits/)。CPU時間の定義と、アカウント全体の日次リクエスト上限を参照。
+[^agentic-coding]: [GitHub Docs：About GitHub Copilot agents](https://docs.github.com/en/copilot/concepts/agents/about-copilot-coding-agent)。AIエージェントによる調査、修正、テストなどの説明を参考にしています。
+[^vibe-coding]: [Martin Fowler：Vibe Coding](https://martinfowler.com/bliki/VibeCoding.html)。生成されたコードを細かく確認せず進めるという区別を参考にしています。
