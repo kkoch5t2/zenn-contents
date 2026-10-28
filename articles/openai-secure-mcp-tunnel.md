@@ -26,6 +26,14 @@ ChatGPTは、依頼に合うツールを呼び出し、返ってきた情報を�
 
 これにより、MCPサーバーをインターネットへ公開したり、外部から着信するポートを開放したりせずに利用できます。対応する利用先には、ChatGPT、Codex、Responses APIなどがあります。[^guide]
 
+OpenAI公式ドキュメントでは、依頼と結果の流れを次の図で示しています。
+
+![OpenAI公式のSecure MCP Tunnelのリクエスト処理の流れ](https://raw.githubusercontent.com/kkoch5t2/zenn-contents/main/images/openai-secure-mcp-tunnel-request-flow.png)
+
+出典：[OpenAI「Secure MCP Tunnel」](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
+
+図中の`tunnel-client`と`Private MCP server`が自分のPC側、`OpenAI product`と`OpenAI tunnel service`がOpenAI側に当たります。
+
 ## 技術構成要素
 
 構成は、OpenAI側の2つと、自分のPC側の2つに分かれます。
