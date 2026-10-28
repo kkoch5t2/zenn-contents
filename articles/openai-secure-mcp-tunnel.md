@@ -12,9 +12,9 @@ published: true
 
 出典：[OpenAI「Secure MCP Tunnel」](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
 
-図中の`tunnel-client`と`Private MCP server`が自分のPC側、`OpenAI product`と`OpenAI tunnel service`がOpenAI側に当たります。
-
 **Secure MCP Tunnelは、非公開のMCPサーバーを、ChatGPTなどのOpenAI製品から利用するための通信の仕組みです。**[^guide]
+
+図中の`tunnel-client`と`Private MCP server`が自分のPC側、`OpenAI product`と`OpenAI tunnel service`がOpenAI側に当たります。
 
 MCP（Model Context Protocol）は、AIアプリケーションと外部のツールやデータを接続するためのプロトコルです。MCPサーバーは、AIから呼び出せるツールを提供します。[^mcp]
 
