@@ -54,6 +54,14 @@ MCPは、AIが外部のツールを呼び出すための仕組みです。redeco
 
 ![ChatGPT WorkでRoutiaの公開前セキュリティチェックを行った実際の操作履歴。赤枠はredecoによるコマンド実行と検証](/images/redeco-security-check-screenshot-20261030.webp)
 
+:::message
+**ChatGPT Workについて**
+
+ChatGPT Workは、調査・ファイル操作・検証など、複数の工程を含む作業をまとめて依頼できる機能です。通常のチャットと同じように、自然言語で指示しながら作業を進められます。
+
+**redecoはWork専用ではなく、通常のChatGPTチャットからも利用できます。** 上のスクリーンショットは、Workでredecoを呼び出したときの一例です。
+:::
+
 ### Secure MCP Tunnel：ChatGPTと自宅PCをつなぐ
 
 ChatGPTとredecoの間は、OpenAIのSecure MCP Tunnelで接続しています。自宅PCの`tunnel-client`がOpenAI側へHTTPS接続を開始し、受け取った操作依頼を同じPC上のredecoへ渡します。[^tunnel]
