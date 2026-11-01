@@ -132,9 +132,15 @@ Androidアプリは、ミニPCでビルドできても、普段の実機確認�
 
 https://developers.cloudflare.com/workers/platform/pricing/
 
-2026年11月1日時点では、ChatGPTの通常のテキストチャットは無料プランを含めて回数無制限で利用できます。[^plans] ただし、モデルの選択やツールの利用枠はプランごとに異なります。PlusではCodexやWorkだけでなく、**通常のチャットでもGPT-6 SolのMedium／Highを利用できます。**[^model]
+2026年11月1日時点では、ChatGPTの通常のテキストチャットは無料プランを含めて回数無制限で利用できます。[^plans] ただし、モデルの選択やツールの利用枠はプランごとに異なります。PlusではCodexやWorkだけでなく、**通常のチャットでもGPT-6 Sol（Medium／High）を利用でき、GPT-5.6 Solもモデルメニューから選択できます。**[^model]
 
-性能面では、Gradually AIがまとめた比較で、GPT-6 Solの総合指数は70.6、Claude Opus 4.8は57.0でした。コーディングや推論、エージェント作業でもGPT-6 Solが高い評価を得ています。評価条件による差はありますが、個人開発に使うモデルとしても心強い結果です。[^benchmark]
+性能面では、Gradually AIの総合指数ランキング（95モデルを対象）で、Claude Fable 5（79.6）に続き、**GPT-6 Sol（73.4）とGPT-5.6 Sol（71.4）が並んでいます。**[^benchmark] 今回使っているモデルが、ほかの主要モデルと比べてどのあたりに位置するのか分かります。
+
+![Gradually AIのLLM総合指数ランキング。Claude Fable 5に続くGPT-6 Sol（73.4）とGPT-5.6 Sol（71.4）を赤枠で示したグラフ](/images/gradually-ai-overall-index-20261101.png)
+
+出典：Gradually AI「The best LLMs in the overall index」（2026年11月1日確認）
+
+https://www.gradually.ai/en/llm-comparison/
 
 ChatGPT Plusは、自分の個人開発に思っていた以上に使えています。自宅のPCに実作業を任せ、**スマホから依頼と確認を繰り返せること**は、アプリ開発とWebサイト運営の両方で大きなメリットになっています。
 
@@ -142,7 +148,7 @@ ChatGPT Plusは、自分の個人開発に思っていた以上に使えてい�
 
 [^plans]: [ChatGPT公式：プランと料金](https://chatgpt.com/ja-JP/pricing/)。通常のテキストチャットとプラン別の利用枠について参照。
 [^model]: [OpenAI公式：ChatGPTのGPT-6とその他のモデル](https://help.openai.com/ja-jp/articles/20001354-gpt-6-and-other-models-in-chatgpt)。PlusでのGPT-6 Solと推論レベルについて参照。
-[^benchmark]: [Gradually AI：Claude Opus 4.8 vs. GPT-6 Sol](https://www.gradually.ai/en/llm-comparison/claude-opus-4.8-vs-gpt-6-sol/)。総合指数および分野別ベンチマークの比較。2026年11月1日確認。
+[^benchmark]: [Gradually AI：LLM comparison / Overall index](https://www.gradually.ai/en/llm-comparison/)。95モデルを対象とする総合指数ランキング。2026年11月1日確認。
 [^tunnel]: [OpenAI公式：Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)。PC側から接続する通信経路について参照。
 [^redeco]: [redeco README](https://github.com/kkoch5t2/redeco/blob/main/README.md)と[ツールの実装](https://github.com/kkoch5t2/redeco/blob/main/server.py)。ファイル制限、SHA-256確認、コマンド実行の境界を参照。2026年10月30日確認。
 [^redeco-ubuntu]: [redeco Ubuntu版の導入・権限設定](https://github.com/kkoch5t2/redeco/blob/main/ubuntu/README.md)。隔離モードと開発ユーザーモード、sudoの設定、サービス名と実行モードの違いを参照。
