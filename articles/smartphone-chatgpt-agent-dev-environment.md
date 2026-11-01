@@ -44,6 +44,8 @@ https://github.com/kkoch5t2/redeco
 
 MCPは、AIが外部のツールを呼び出すための仕組みです。redecoはファイルの読み書き、コマンド実行、長時間処理の開始・出力確認・停止などに対応しています。ChatGPTがこれらの機能を使い、ソースコードの修正からテスト、ビルドまで進めます。
 
+**redecoはCodex専用ではなく、ChatGPTの通常のチャットからも利用できます。** 自分もスマホで普段のチャットを開き、「このファイルを修正して」「テストを実行して」と話しかけて操作しています。あらかじめChatGPTにredecoを接続しておけば、専用の開発画面を開く必要はありません。
+
 例えば、スマホから「アプリのセキュリティチェックをして」と依頼すると、ChatGPTがredecoを通じてミニPC上のコードを調べ、結果を報告します。作業の流れは次のとおりです。
 
 ![スマホからセキュリティチェックを依頼し、redeco経由でUbuntuのコードやテストを調査して結果を報告する流れ](/images/redeco-security-check-flow-20261030.webp)
@@ -130,10 +132,17 @@ Androidアプリは、ミニPCでビルドできても、普段の実機確認�
 
 https://developers.cloudflare.com/workers/platform/pricing/
 
-ChatGPT Plusでも、個人開発には思っていた以上に使えています。自宅のPCに実作業を任せ、**スマホから依頼と確認を繰り返せること**は、アプリ開発とWebサイト運営の両方で大きなメリットになっています。
+2026年11月1日時点では、ChatGPTの通常のテキストチャットは無料プランを含めて回数無制限で利用できます。[^plans] ただし、モデルの選択やツールの利用枠はプランごとに異なります。PlusではCodexやWorkだけでなく、**通常のチャットでもGPT-6 SolのMedium／Highを利用できます。**[^model]
+
+性能面では、Gradually AIがまとめた比較で、GPT-6 Solの総合指数は70.6、Claude Opus 4.8は57.0でした。コーディングや推論、エージェント作業でもGPT-6 Solが高い評価を得ています。評価条件による差はありますが、個人開発に使うモデルとしても心強い結果です。[^benchmark]
+
+ChatGPT Plusは、自分の個人開発に思っていた以上に使えています。自宅のPCに実作業を任せ、**スマホから依頼と確認を繰り返せること**は、アプリ開発とWebサイト運営の両方で大きなメリットになっています。
 
 ## 参考資料
 
+[^plans]: [ChatGPT公式：プランと料金](https://chatgpt.com/ja-JP/pricing/)。通常のテキストチャットとプラン別の利用枠について参照。
+[^model]: [OpenAI公式：ChatGPTのGPT-6とその他のモデル](https://help.openai.com/ja-jp/articles/20001354-gpt-6-and-other-models-in-chatgpt)。PlusでのGPT-6 Solと推論レベルについて参照。
+[^benchmark]: [Gradually AI：Claude Opus 4.8 vs. GPT-6 Sol](https://www.gradually.ai/en/llm-comparison/claude-opus-4.8-vs-gpt-6-sol/)。総合指数および分野別ベンチマークの比較。2026年11月1日確認。
 [^tunnel]: [OpenAI公式：Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)。PC側から接続する通信経路について参照。
 [^redeco]: [redeco README](https://github.com/kkoch5t2/redeco/blob/main/README.md)と[ツールの実装](https://github.com/kkoch5t2/redeco/blob/main/server.py)。ファイル制限、SHA-256確認、コマンド実行の境界を参照。2026年10月30日確認。
 [^redeco-ubuntu]: [redeco Ubuntu版の導入・権限設定](https://github.com/kkoch5t2/redeco/blob/main/ubuntu/README.md)。隔離モードと開発ユーザーモード、sudoの設定、サービス名と実行モードの違いを参照。
