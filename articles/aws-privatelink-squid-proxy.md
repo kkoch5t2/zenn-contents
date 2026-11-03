@@ -10,11 +10,13 @@ AWS PrivateLinkを使い、**アカウントBのLambdaから、アカウントA�
 
 B側にはInternet GatewayもNAT Gatewayも置かず、アプリケーションが明示的にA側のプロキシを使います。検証先には、アクセス元のパブリックIPを返す `https://checkip.amazonaws.com/` を使用しました。
 
-最初に1つのAvailability Zone（AZ）で疎通を確認し、その後2AZへ拡張しています。その過程で、**NLBにAZを追加しても、既存のEndpoint ServiceではそのAZが自動的に有効にならない**という点で詰まりました。
+最初はA・Bそれぞれで1つのサブネットを使って疎通を確認しました。その後、複数のAvailability Zone（AZ）への配置による耐障害性も考え、各アカウントに別のAZのサブネットを1つずつ追加し、NLB・EC2・Endpointなどの設定を更新して再度検証しました。
 
-この記事では、構成の全体像、各サービスの役割、設定の要点、2AZ化のエラーと解消方法、確認できたことを順に整理します。検証リージョンはシドニー（`ap-southeast-2`）です。
+この記事では、検証内容、前提知識、作業手順、テスト、補足の順に説明します。検証リージョンはシドニー（`ap-southeast-2`）です。
 
-## 1. 今回検証した構成と通信の流れ
+## 検証内容
+
+まずは、今回検証した構成と通信の流れについて説明します。
 
 ### 利用側をB、プロキシの提供側をAとする
 
@@ -40,7 +42,7 @@ B側にはInternet GatewayもNAT Gatewayも置かず、アプリケーション�
 
 たとえば、Snowflakeのように接続元IPを制限するサービスとの連携を考えるときも、「Aのプロキシ経由で公開エンドポイントへ接続する方式」と「接続先が提供するPrivateLinkでプライベート接続する方式」は分けて考える必要があります。今回確認したのは前者につながるプロキシ経路です。Snowflakeへの接続自体は、この検証には含めていません。
 
-### 2AZ化後に設定したリソース
+### 検証で作成・設定したリソース
 
 CloudFormationテンプレートで明示的に作成・設定しているリソースをまとめます。AZを2つ使っていても、NLBやInterface Endpoint自体を2個ずつ作る構成ではありません。
 
@@ -69,7 +71,9 @@ CloudFormationテンプレートで明示的に作成・設定しているリソ
 
 EC2にはIMDSv2を必須に設定し、SSH用のインバウンドルールは設けていません。SSM用の権限は付けていますが、SSMも利用するには、エージェントの動作とSSM関連サービスへの通信経路が必要です。
 
-## 2. PrivateLink・NLB・Squidはそれぞれ何をしているのか
+## 前提知識
+
+構築に入る前に、PrivateLink・NLB・Squidがそれぞれ何をするのか、通信に使うポートや接続制御と合わせて説明します。
 
 ### Interface EndpointはB側の接続口、Endpoint ServiceはA側の公開設定
 
@@ -154,7 +158,9 @@ http_access deny all
 
 参考：[NLBのセキュリティグループ](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-security-groups.html)
 
-## 3. 2つのアカウントに構築する
+## 作業手順
+
+検証の作業手順について説明します。A側でプロキシを提供する環境を作り、B側にEndpointとLambdaを設定した後、A側で接続要求を承認します。
 
 ### リージョンと物理AZをそろえる
 
@@ -186,7 +192,7 @@ aws ec2 describe-availability-zones \
 
 ### A側でSquidとNLBを作る
 
-検証では、A側を `pl-proxy-provider-lab`、B側を `pl-proxy-consumer-lab` というCloudFormationスタックで管理しました。最初は1AZで作成し、後から同じスタックを更新して2AZへ広げています。
+検証では、A側を `pl-proxy-provider-lab`、B側を `pl-proxy-consumer-lab` というCloudFormationスタックで管理しました。最初は各アカウントで1つのサブネットを使って作成し、追加検証では同じスタックを更新して、別のAZのサブネットと必要なリソースを追加しました。
 
 A側のパラメーターは次のとおりです。テンプレートは固定名のIAMロールを作成するため、CloudFormationでは名前付きIAMリソースの作成を確認する項目（`CAPABILITY_NAMED_IAM`）も確認します。
 
@@ -194,14 +200,14 @@ A側のパラメーターは次のとおりです。テンプレートは固定�
 | --- | --- |
 | `ConsumerAccountId` | 接続を許可するBのAWSアカウントID |
 | `ProviderAzId` | `apse2-az1` |
-| `ProviderAzId2` | 2AZ化時に追加した `apse2-az2` |
+| `ProviderAzId2` | 追加検証で指定した `apse2-az2` |
 | `AmiId` | Amazon Linux 2023のAMIを参照するSSMパラメーター |
 
 AMIには `/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64` を参照しています。Squidのインストールと設定はEC2のUser Dataで実行し、`squid -k parse` で設定を確認してからサービスを有効化・起動します。
 
 ここで、CloudFormationの完了表示とSquidの起動完了は分けて確認します。今回のテンプレートには、Squidの起動成功をCloudFormationへ通知して待機させる仕組みを入れていません。スタックが完了しても、EC2内ではインストールが続いている可能性があります。
 
-EC2コンソールの「ターゲットグループ」で、Squidを登録したターゲットが `healthy` になることを確認します。2AZ化後は2台とも対象です。
+EC2コンソールの「ターゲットグループ」で、Squidを登録したターゲットが `healthy` になることを確認します。EC2の追加後は2台とも確認します。
 
 ### A側でEndpoint Serviceを提供する
 
@@ -256,13 +262,19 @@ Lambdaには、Bの対象サブネットとLambda SGを指定します。環境�
 
 参考：[Endpoint Serviceの権限と接続要求の承認](https://docs.aws.amazon.com/vpc/latest/privatelink/configure-endpoint-service.html)
 
-## 4. 1AZから2AZへ広げたときに詰まった点
+### 補足：サブネットを2つにして追加検証する
 
-### サブネットを2個作るだけでは、2AZ構成にならない
+最初の疎通確認後、耐障害性を考えて、各アカウントで使うサブネットを1つから2つに増やして追加検証しました。
 
-可用性を考えるときに重要なのは、サブネットの個数だけではありません。**異なるAZにサブネットを作り、それぞれに必要なリソースと通信経路を配置すること**です。同じAZにサブネットを2つ作っても、AZ障害に対する分散にはなりません。
+AWSは、ロードバランサーで複数のAZを有効にすることを推奨しています。今回使うNLBは1つのAZでも作成できますが、複数のAZを選び、それぞれにターゲットを配置することで、アプリケーションの耐障害性を高められます。
 
-今回の2AZ化では、次の変更を行いました。
+このため、今回は**異なるAZにサブネットを1つずつ用意し、NLBとSquid EC2を両方のAZに配置する構成**にしました。B側も、それぞれのAZのサブネットをEndpointとLambdaに設定しています。同じAZにサブネットを2つ作るだけでは、AZ障害に備えた分散にはなりません。
+
+参考：[ロードバランサーでの複数AZの利用](https://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html#availability-zones)、[NLB作成時のAZ・サブネットの選択](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/create-network-load-balancer.html)
+
+#### サブネット追加に合わせて変更した設定
+
+サブネットの追加だけでなく、次のリソースも設定を変更しました。
 
 | 対象 | 追加・変更した内容 |
 | --- | --- |
@@ -281,13 +293,9 @@ Lambdaには、Bの対象サブネットとLambda SGを指定します。環境�
 ![A側NLBのネットワークマッピング。同じNLBに2つのAZのサブネットが設定されている](/images/aws-privatelink-proxy/captures/capture-provider-nlb-mapping.png)
 *同じNLBに、`ap-southeast-2a` と `ap-southeast-2c` のサブネットを設定しています。*
 
-AWSも、PrivateLinkのサービス提供では複数AZでNLBを有効にし、それぞれにターゲットを配置することを推奨しています。
+#### Endpointに2つ目のサブネットを追加したときのエラー
 
-参考：[PrivateLinkサービスのサブネットとAZ](https://docs.aws.amazon.com/vpc/latest/privatelink/privatelink-share-your-services.html#subnets-availability-zones)
-
-### NLBは2AZなのに、B側のEndpoint更新が失敗した
-
-A側でNLBとEC2を2AZ化した後、B側のEndpointへ2つ目のサブネットを追加したところ、サービスがそのサブネットのAZをサポートしていないというエラーが出ました。
+A側でNLBに2つ目のサブネットを設定し、EC2を追加した後、B側のEndpointへ2つ目のサブネットを追加したところ、サービスがそのサブネットのAZをサポートしていないというエラーが出ました。
 
 ```text
 The VPC endpoint service ... does not support the availability zone of the subnet.
@@ -295,14 +303,14 @@ The VPC endpoint service ... does not support the availability zone of the subne
 
 確認すると、AのNLBは2つのAZを使う設定になっていましたが、**Endpoint Serviceで有効なAZは1つのまま**でした。
 
-![NLBの2AZ化後もEndpoint Serviceで追加AZが有効になっていないためBのEndpoint更新が失敗し、サービス側で有効化すると成功する](/images/aws-privatelink-proxy/03-az-mismatch.png)
+![NLBに2つ目のサブネットを設定した後もEndpoint Serviceで追加AZが有効になっていないためBのEndpoint更新が失敗し、サービス側で有効化すると成功する](/images/aws-privatelink-proxy/03-az-mismatch.png)
 *図3：NLBのネットワークマッピングと、Endpoint Serviceが提供するAZをそれぞれ確認します。*
 
 これはAZ名のa・cを選んだこと自体が原因ではありません。今回の失敗の直接の原因は、追加した物理AZをEndpoint Serviceがまだ提供していなかったことです。AZ IDの照合と、サービス側でのAZ有効化は別々に必要です。
 
 AWS公式ドキュメントにも、ロードバランサーへ追加したAZはEndpoint Serviceで別途有効化が必要であり、反映可能になるまで数分かかる場合があると記載されています。
 
-### Endpoint Serviceで追加AZを有効化してから、Bを再更新する
+#### Endpoint Serviceの設定を確認して更新をやり直す
 
 解消時の確認順序は、**AのNLB → AのEndpoint Service → BのEndpoint** です。
 
@@ -324,7 +332,9 @@ CloudFormationの変更内容では、既存VPC・NLB・Endpoint Service・Endpo
 
 参考：[Endpoint Serviceに関連付けるロードバランサーとAZの管理](https://docs.aws.amazon.com/vpc/latest/privatelink/configure-endpoint-service.html#manage-load-balancers)
 
-## 5. Lambdaから疎通と送信元IPを確認する
+## テスト
+
+リソースの構築後に、B側のLambdaから外部サイトへアクセスするテストを行いました。接続の成功と、外部から見える送信元IPがA側EC2のIPになっていることを確認します。
 
 ### Endpointとターゲットの状態を先に見る
 
@@ -414,7 +424,9 @@ Lambdaコンソールでテストイベント `{}` を実行し、返却値を�
 
 参考：[NLBのヘルスチェック](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/target-group-health-checks.html)
 
-## 6. 運用を考えるときに整理したこと
+## 補足
+
+今回の作業を進める中で、注意したほうがよいと感じたポイントをまとめます。出口IPの固定、サブネットの見分け方、障害への備え、検証後の片付けについて整理します。
 
 ### 接続元IPの許可リストが必要なら、出口を固定する
 
@@ -462,13 +474,13 @@ Lambdaコンソールでテストイベント `{}` を実行し、返却値を�
 
 参考：[Internet Gatewayとサブネットのルート](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Internet_Gateway.html)、[NAT Gatewayの公開・プライベート種別](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html)、[VPC接続Lambdaのインターネットアクセス](https://docs.aws.amazon.com/lambda/latest/dg/configuration-vpc-internet.html)
 
-### 2AZ化と、自動復旧の仕組みは分けて考える
+### 複数AZへの配置と、自動復旧の違い
 
 今回は、各AZにSquid EC2を1台ずつ置きましたが、Auto Scaling Groupは使っていません。EC2が失われたとき、自動で代替インスタンスが作られる構成ではありません。
 
 継続運用するなら、少なくとも、プロキシの実疎通監視、EC2障害時の復旧、OS・Squidの更新、許可ドメインの管理、クライアントの再試行、ログの保持期間を検討する必要があります。ログには接続先などが記録されるため、閲覧権限や保存期間も運用に合わせます。
 
-今回の2AZ化は、複数AZに必要なリソースを配置して使えるようにするところまでです。障害が起きても要求が途切れないことまで保証する検証ではありません。
+今回の追加検証は、複数AZに必要なリソースを配置して使えるようにするところまでです。障害が起きても要求が途切れないことまで保証する検証ではありません。
 
 ### 検証を終えたら、課金対象を残さず片付ける
 
