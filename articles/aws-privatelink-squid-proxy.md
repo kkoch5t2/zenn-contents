@@ -162,6 +162,16 @@ http_access deny all
 
 検証の作業手順について説明します。A側でプロキシを提供する環境を作り、B側にEndpointとLambdaを設定した後、A側で接続要求を承認します。
 
+### 検証用コード
+
+検証に使用したCloudFormationテンプレートは、以下の公開リポジトリにまとめています。
+
+https://github.com/kkoch5t2/aws-privatelink-proxy
+
+`01-provider-a.yaml` がA側のプロキシ提供環境、`02-consumer-b.yaml` がB側のEndpoint・Lambdaの構築用です。
+
+公開版は、最初から2AZ構成を作成する**新規スタック用**のテンプレートです。初回検証時から一部のパラメーター名・出力名を整理しているため、実行時の指定はリポジトリのREADMEを参照してください。
+
 ### リージョンとAZの確認
 
 A・Bともに、シドニーリージョンを使います。最終構成で指定したAZ IDは次の2つです。
