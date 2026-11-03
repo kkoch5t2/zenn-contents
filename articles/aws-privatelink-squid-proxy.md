@@ -18,7 +18,7 @@ B側にはInternet GatewayもNAT Gatewayも置かず、アプリケーション�
 
 まずは、今回検証した構成と通信の流れについて説明します。
 
-### 利用側をB、プロキシの提供側をAとする
+### アカウントの役割と通信経路
 
 アカウントごとの役割は次のとおりです。
 
@@ -42,7 +42,7 @@ B側にはInternet GatewayもNAT Gatewayも置かず、アプリケーション�
 
 たとえば、Snowflakeのように接続元IPを制限するサービスとの連携を考えるときも、「Aのプロキシ経由で公開エンドポイントへ接続する方式」と「接続先が提供するPrivateLinkでプライベート接続する方式」は分けて考える必要があります。今回確認したのは前者につながるプロキシ経路です。Snowflakeへの接続自体は、この検証には含めていません。
 
-### 検証で作成・設定したリソース
+### 構成リソース
 
 CloudFormationテンプレートで明示的に作成・設定しているリソースをまとめます。AZを2つ使っていても、NLBやInterface Endpoint自体を2個ずつ作る構成ではありません。
 
@@ -75,7 +75,7 @@ EC2にはIMDSv2を必須に設定し、SSH用のインバウンドルールは�
 
 構築に入る前に、PrivateLink・NLB・Squidがそれぞれ何をするのか、通信に使うポートや接続制御と合わせて説明します。
 
-### Interface EndpointはB側の接続口、Endpoint ServiceはA側の公開設定
+### PrivateLinkの接続方式
 
 Interface VPC Endpointは、利用側のVPCに作るプライベートな接続口です。選択したサブネットにENI（Elastic Network Interface）が作られ、クライアントはそのプライベートIPへ接続します。
 
@@ -87,7 +87,7 @@ B側で使うプロキシのホスト名は、**BのInterface Endpointに割り�
 
 参考：[AWS PrivateLinkの概念](https://docs.aws.amazon.com/vpc/latest/privatelink/concepts.html)
 
-### 今回のサービス公開方式ではNLBを使う
+### NLBの役割
 
 今回は、SquidをNLBの配下に置き、NLBに関連付けたEndpoint Serviceを提供しています。NLBはTCPを転送する役割で、Squidの代わりにプロキシ処理を行うものではありません。
 
@@ -97,7 +97,7 @@ NLBの `Scheme` は `internal` です。今回、EC2と同じパブリックサ�
 
 参考：[Endpoint Serviceの作成](https://docs.aws.amazon.com/vpc/latest/privatelink/create-endpoint-service.html)、[Resource Endpointによるリソースへのアクセス](https://docs.aws.amazon.com/vpc/latest/privatelink/privatelink-access-resources.html)
 
-### TCP 3128とHTTPSの443は役割が違う
+### 通信ポートとHTTPS接続
 
 今回使用したTCP 3128は、Squidがクライアントからの接続を待ち受けるポートです。Squidの標準設定でも使われる代表的な番号ですが、プロキシ全般に必須の番号ではありません。変更する場合は、クライアント設定・各SG・NLBリスナー・ターゲットグループ・Squidを整合させます。
 
@@ -110,7 +110,7 @@ HTTPSの接続先は `checkip.amazonaws.com:443` です。LambdaはSquidに対�
 
 参考：[Squidの `http_port` 設定](https://www.squid-cache.org/Doc/config/http_port/)
 
-### SGによる接続制御と、Squidによる接続先制御を重ねる
+### アクセス制御
 
 主なインバウンド設定は次のとおりです。
 
@@ -162,7 +162,7 @@ http_access deny all
 
 検証の作業手順について説明します。A側でプロキシを提供する環境を作り、B側にEndpointとLambdaを設定した後、A側で接続要求を承認します。
 
-### リージョンと物理AZをそろえる
+### リージョンとAZの確認
 
 A・Bともに、シドニーリージョンを使います。最終構成で指定したAZ IDは次の2つです。
 
@@ -190,7 +190,7 @@ aws ec2 describe-availability-zones \
 
 参考：[アカウントをまたぐAZ IDの確認](https://docs.aws.amazon.com/ram/latest/userguide/working-with-az-ids.html)
 
-### A側でSquidとNLBを作る
+### A側のプロキシ環境の構築
 
 検証では、A側を `pl-proxy-provider-lab`、B側を `pl-proxy-consumer-lab` というCloudFormationスタックで管理しました。最初は各アカウントで1つのサブネットを使って作成し、追加検証では同じスタックを更新して、別のAZのサブネットと必要なリソースを追加しました。
 
@@ -209,7 +209,7 @@ AMIには `/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
 
 EC2コンソールの「ターゲットグループ」で、Squidを登録したターゲットが `healthy` になることを確認します。EC2の追加後は2台とも確認します。
 
-### A側でEndpoint Serviceを提供する
+### A側のサービス公開設定
 
 Endpoint Serviceには、Squidの前段に置いた内部NLBを関連付けます。サービスへの接続を許可するプリンシパルには、BのAWSアカウントを指定します。
 
@@ -233,7 +233,7 @@ A側スタックの出力にある `ServiceName` を、B側に渡します。形
 com.amazonaws.vpce.ap-southeast-2.vpce-svc-<サービスID>
 ```
 
-### B側でEndpointとLambdaを設定し、A側で承認する
+### B側の利用環境の構築と接続承認
 
 B側では、Aの `ServiceName` を指定してInterface VPC Endpointを作成します。サブネットは、Aのサービスが提供するAZ IDに対応するものを選びます。
 
@@ -262,7 +262,7 @@ Lambdaには、Bの対象サブネットとLambda SGを指定します。環境�
 
 参考：[Endpoint Serviceの権限と接続要求の承認](https://docs.aws.amazon.com/vpc/latest/privatelink/configure-endpoint-service.html)
 
-### 補足：サブネットを2つにして追加検証する
+### 補足：サブネット追加の検証
 
 最初の疎通確認後、耐障害性を考えて、各アカウントで使うサブネットを1つから2つに増やして追加検証しました。
 
@@ -272,7 +272,7 @@ AWSは、ロードバランサーで複数のAZを有効にすることを推奨
 
 参考：[ロードバランサーでの複数AZの利用](https://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html#availability-zones)、[NLB作成時のAZ・サブネットの選択](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/create-network-load-balancer.html)
 
-#### サブネット追加に合わせて変更した設定
+#### 追加設定
 
 サブネットの追加だけでなく、次のリソースも設定を変更しました。
 
@@ -293,7 +293,7 @@ AWSは、ロードバランサーで複数のAZを有効にすることを推奨
 ![A側NLBのネットワークマッピング。同じNLBに2つのAZのサブネットが設定されている](/images/aws-privatelink-proxy/captures/capture-provider-nlb-mapping.png)
 *同じNLBに、`ap-southeast-2a` と `ap-southeast-2c` のサブネットを設定しています。*
 
-#### Endpointに2つ目のサブネットを追加したときのエラー
+#### 発生したエラー
 
 A側でNLBに2つ目のサブネットを設定し、EC2を追加した後、B側のEndpointへ2つ目のサブネットを追加したところ、サービスがそのサブネットのAZをサポートしていないというエラーが出ました。
 
@@ -310,7 +310,7 @@ The VPC endpoint service ... does not support the availability zone of the subne
 
 AWS公式ドキュメントにも、ロードバランサーへ追加したAZはEndpoint Serviceで別途有効化が必要であり、反映可能になるまで数分かかる場合があると記載されています。
 
-#### Endpoint Serviceの設定を確認して更新をやり直す
+#### 解消手順
 
 解消時の確認順序は、**AのNLB → AのEndpoint Service → BのEndpoint** です。
 
@@ -336,7 +336,7 @@ CloudFormationの変更内容では、既存VPC・NLB・Endpoint Service・Endpo
 
 リソースの構築後に、B側のLambdaから外部サイトへアクセスするテストを行いました。接続の成功と、外部から見える送信元IPがA側EC2のIPになっていることを確認します。
 
-### Endpointとターゲットの状態を先に見る
+### リソースの状態確認
 
 Lambdaを実行する前に、経路の途中にあるリソースの状態を確認します。
 
@@ -352,7 +352,7 @@ Lambdaを実行する前に、経路の途中にあるリソースの状態を�
 ![B側のInterface Endpointが利用可能となり、2つのAZのサブネットとEndpoint ENIのプライベートIPv4が表示されている](/images/aws-privatelink-proxy/captures/capture-consumer-endpoint-2az.png)
 *B側ではEndpointが「使用可能」となり、2つのサブネットにそれぞれプライベートIPv4が割り当てられていることを確認します。*
 
-### HTTPクライアントで明示的にプロキシを指定する
+### 疎通確認
 
 Lambdaのコードでは、Python標準ライブラリの `urllib.request` を使いました。処理の中心は次のとおりです。
 
@@ -414,7 +414,7 @@ Lambdaコンソールでテストイベント `{}` を実行し、返却値を�
 
 なお、このコードは例外を捕捉して `success: false` を返します。そのため、Lambdaコンソール上で関数実行が成功扱いでも、外部サイトへの接続が成功したとは限りません。返却したJSONの `success` と `http_status` を確認します。
 
-### 確認できたことと、追加検証が必要なこと
+### テスト結果と未検証の項目
 
 今回の検証では、LambdaからのアクセスでHTTP 200が返り、外部から見える送信元IPがA側EC2のパブリックIPv4になることを確認できました。
 
@@ -428,7 +428,7 @@ Lambdaコンソールでテストイベント `{}` を実行し、返却値を�
 
 今回の作業を進める中で、注意したほうがよいと感じたポイントをまとめます。出口IPの固定、サブネットの見分け方、障害への備え、検証後の片付けについて整理します。
 
-### 接続元IPの許可リストが必要なら、出口を固定する
+### 送信元IPの固定
 
 今回のEC2のパブリックIPv4は、自動割当のIPです。**Elastic IPは設定していません。** EC2の停止・起動などで変わり得るため、そのまま長期運用の接続元IP許可リストに登録する設計には向きません。
 
@@ -446,7 +446,7 @@ Lambdaコンソールでテストイベント `{}` を実行し、返却値を�
 
 参考：[Elastic IPの性質と料金](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html)
 
-### パブリック／プライベートはルートを見て判断する
+### サブネットの確認方法
 
 サブネット名に `public` や `private` と書いてあるだけで判断せず、関連付けられたルートテーブルを確認します。今回のIPv4構成なら、次の順で見ると分かりやすいです。
 
@@ -474,7 +474,7 @@ Lambdaコンソールでテストイベント `{}` を実行し、返却値を�
 
 参考：[Internet Gatewayとサブネットのルート](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Internet_Gateway.html)、[NAT Gatewayの公開・プライベート種別](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html)、[VPC接続Lambdaのインターネットアクセス](https://docs.aws.amazon.com/lambda/latest/dg/configuration-vpc-internet.html)
 
-### 複数AZへの配置と、自動復旧の違い
+### 可用性と自動復旧
 
 今回は、各AZにSquid EC2を1台ずつ置きましたが、Auto Scaling Groupは使っていません。EC2が失われたとき、自動で代替インスタンスが作られる構成ではありません。
 
@@ -482,7 +482,7 @@ Lambdaコンソールでテストイベント `{}` を実行し、返却値を�
 
 今回の追加検証は、複数AZに必要なリソースを配置して使えるようにするところまでです。障害が起きても要求が途切れないことまで保証する検証ではありません。
 
-### 検証を終えたら、課金対象を残さず片付ける
+### リソースの削除
 
 EC2を止めるだけでは、検証環境全体の課金は止まりません。NLB、Interface EndpointのAZごとの利用、EBS、パブリックIPv4、データ処理・転送、ログなどを確認します。Elastic IPを後から追加した場合は、その解放も確認が必要です。
 
