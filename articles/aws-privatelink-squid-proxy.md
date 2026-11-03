@@ -3,7 +3,7 @@ title: "AWS PrivateLinkで別アカウントのSquidを経由して外部接続�
 emoji: "🔗"
 type: "tech"
 topics: ["aws", "privatelink", "vpc", "network", "cloudformation"]
-published: false
+published: true
 ---
 
 AWS PrivateLinkを使い、**アカウントBのLambdaから、アカウントAのSquidプロキシを経由してインターネットへ接続する構成**を検証しました。
@@ -12,7 +12,7 @@ B側にはInternet GatewayもNAT Gatewayも置かず、アプリケーション�
 
 最初はA・Bそれぞれで1つのサブネットを使って疎通を確認しました。その後、複数のAvailability Zone（AZ）への配置による耐障害性も考え、各アカウントに別のAZのサブネットを1つずつ追加し、NLB・EC2・Endpointなどの設定を更新して再度検証しました。
 
-この記事では、検証内容、前提知識、作業手順、テスト、補足の順に説明します。検証リージョンはシドニー（`ap-southeast-2`）です。
+この記事では、検証内容、前提、作業手順、テスト、補足の順に説明します。検証リージョンはシドニー（`ap-southeast-2`）です。
 
 ## 検証内容
 
