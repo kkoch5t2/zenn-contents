@@ -12,7 +12,7 @@ B側にはInternet GatewayもNAT Gatewayも置かず、アプリケーション�
 
 最初はA・Bそれぞれで1つのサブネットを使って疎通を確認しました。その後、複数のAvailability Zone（AZ）への配置による耐障害性も考え、各アカウントに別のAZのサブネットを1つずつ追加し、NLB・EC2・Endpointなどの設定を更新して再度検証しました。
 
-この記事では、検証内容、前提、作業手順、テスト、補足の順に説明します。検証リージョンはシドニー（`ap-southeast-2`）です。
+この記事では、検証内容、前提、作業手順、テスト、補足・注意点の順に説明します。検証リージョンはシドニー（`ap-southeast-2`）です。
 
 ## 検証内容
 
@@ -434,9 +434,33 @@ Lambdaコンソールでテストイベント `{}` を実行し、返却値を�
 
 参考：[NLBのヘルスチェック](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/target-group-health-checks.html)
 
-## 補足
+## 補足・注意点
 
-今回の作業を進める中で、注意したほうがよいと感じたポイントをまとめます。出口IPの固定、サブネットの見分け方、障害への備え、検証後の片付けについて整理します。
+今回の作業を進める中で、注意したほうがよいと感じたポイントをまとめます。プロキシへの不要な外部接続を防ぐ設定、出口IPの固定、サブネットの見分け方、障害への備え、検証後の片付けについて整理します。
+
+### プロキシの外部公開防止
+
+プロキシをインターネット上の誰でも利用できる状態にすると、第三者の通信を中継する「オープンプロキシ」になる危険があります。**今回許可したいのは、BのLambdaからPrivateLink経由で届く接続だけです。** NLB・EC2・Endpoint Serviceの設定を組み合わせて、利用できる経路を制限します。
+
+特に、今回のSquid EC2には外向き通信のためにパブリックIPv4を割り当てています。**NLBを内部向けにしていても、EC2のパブリックIPへの直接接続まで防げるわけではありません。** EC2側のSGも必ず確認します。
+
+| 確認箇所 | 今回維持する設定・注意点 |
+| --- | --- |
+| AのNLB | `Scheme: internal` を使い、インターネット向けのNLBに変更しない |
+| AのSquid EC2 SG | TCP 3128の許可元をNLB SGに限定する。`0.0.0.0/0` を許可元にした3128番や全ポートのインバウンドルールを追加しない。IPv6を導入する場合も `::/0` に開放しない |
+| AのNLB SG | Bの必要なサブネットからのTCP 3128だけを許可し、PrivateLink通信へのインバウンドルール適用を `on` にする |
+| AのEndpoint Service | 許可プリンシパルをBなど必要なアカウントに絞り、接続承認を必須にする。不特定のアカウントを示す `*` と自動承認の組み合わせは避ける |
+| BのEndpoint SG | TCP 3128の許可元をLambda SGに限定し、同じVPC内の不要なクライアントにも開放しない |
+
+EC2にSGを複数関連付ける場合は、**すべてのSGの許可ルールが合算されます。** 1つを制限していても、別のSGが3128番を広く許可していないか確認します。疎通エラーの切り分けでも、一時的な全開放を残さないようにします。
+
+また、EC2 SGのアウトバウンドにある `0.0.0.0/0` は、EC2から接続を開始できる宛先の設定です。これだけで外部からの新規接続を許可するわけではありません。SGはステートフルなので、Squidが開始した外部HTTPS通信への応答を受け取るために、3128番のインバウンドを全開放する必要もありません。
+
+Squidでは、許可する接続先とポートを絞り、最後の `http_access deny all` を維持します。`http_access allow all` などの広い許可ルールを追加すると、後ろの拒否ルールでは防げない場合があります。今回の `allowed_sites` は**接続先の制限**であり、利用者を認証する設定ではありません。接続元の制限は、前述のSGとEndpoint Serviceの設定で行っています。
+
+設定後は、BのLambdaからの正常な疎通に加え、管理下のインターネット側端末から各EC2のパブリックIPのTCP 3128へ接続できないこと、Bから許可外ドメインへのCONNECTが拒否されることも確認すると安心です。これらは今回のHTTP 200確認とは別の追加確認項目で、この記事の検証結果には含めていません。
+
+参考：[NLB経由の通信だけをターゲットで許可する設定](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-security-groups.html#target-security-groups)、[SGのルールとステートフルな動作](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-groups.html)、[Endpoint Serviceの接続権限と承認](https://docs.aws.amazon.com/vpc/latest/privatelink/configure-endpoint-service.html)、[Squidのアクセス制御](https://www.squid-cache.org/Doc/config/http_access/)
 
 ### 送信元IPの固定
 
