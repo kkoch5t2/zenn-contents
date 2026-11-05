@@ -176,7 +176,14 @@ VALUES
 | 2 | Bob | 2500.00 | new |
 | 3 | Carol | 800.00 | new |
 
-この時点で、S3にはデータを格納するParquetファイルが作成されています。
+`INSERT`を実行すると、AthenaがS3にParquet形式のデータファイルを保存します。以下は、UPDATE・DELETE・OPTIMIZEなども試した後に、S3の`warehouse/orders/data/`を開いた画面です。
+
+![S3のIcebergテーブルのdataフォルダ直下に短い英数字のフォルダが5つ並ぶ画面](/images/aws-iceberg-lakehouse/10-s3-data-folders.png)
+*一連の検証後に確認した`data/`。この画面に表示されているのはフォルダで、Parquetファイルそのものではない。*
+
+この短い英数字のフォルダ名は、IcebergがS3への書き込み時に使用するランダムなプレフィックスです。今回は複数の操作を試したためフォルダがいくつも見えていますが、**5つのフォルダが5件の注文や5回のINSERTを意味するわけではありません**。[^data-layout]
+
+Parquetファイルはさらに下の階層に保存されています。現在のテーブルがどのファイルを参照しているかは、後述する`orders$files`で確認します。
 
 ### データの更新と削除
 
@@ -364,3 +371,4 @@ S3上のファイルとIcebergのメタデータを確認すると、SQLから�
 [^data]: [Amazon Athena公式：Icebergテーブルのデータ更新](https://docs.aws.amazon.com/athena/latest/ug/querying-iceberg-updating-iceberg-table-data.html)。`INSERT`・`UPDATE`・`DELETE`の操作とPosition Deleteの仕様を参照。
 [^time-travel]: [Amazon Athena公式：Time TravelとVersion Travel](https://docs.aws.amazon.com/athena/latest/ug/querying-iceberg-time-travel-and-version-travel-queries.html)。スナップショットを指定した過去データの参照方法を確認。
 [^optimization]: [Amazon Athena公式：Icebergテーブルの最適化](https://docs.aws.amazon.com/athena/latest/ug/querying-iceberg-data-optimization.html)。`OPTIMIZE`や`VACUUM`の仕組みと注意点を参照。
+[^data-layout]: [AWS Big Data Blog：Optimize data layout by bucketing with Amazon Athena and AWS Glue to accelerate downstream queries](https://aws.amazon.com/blogs/big-data/optimize-data-layout-by-bucketing-with-amazon-athena-and-aws-glue-to-accelerate-downstream-queries/)。Icebergの`data/`配下にランダムなプレフィックスが生成され、その下にデータファイルが配置される構成を参照。
