@@ -3,7 +3,7 @@ title: "AWSでデータレイクハウスを構築してApache Icebergの更新�
 emoji: "🧊"
 type: "tech"
 topics: ["aws", "apacheiceberg", "athena", "s3", "glue"]
-published: false
+published: true
 ---
 
 AWSでデータレイクハウスを構築する場合、どのようなサービスを組み合わせ、データをどのように管理するのか。まずは全体像を把握したくて、小さな検証環境を作ってみました。
