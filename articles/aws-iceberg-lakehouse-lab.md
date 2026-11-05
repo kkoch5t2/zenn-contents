@@ -1,5 +1,5 @@
 ---
-title: "AWSでデータレイクハウスを構築してApache Icebergの更新・履歴管理を検証"
+title: "AWSでデータレイクハウスを構築してApache Icebergの更新・履歴管理を検証した"
 emoji: "🧊"
 type: "tech"
 topics: ["aws", "apacheiceberg", "athena", "s3", "glue"]
@@ -176,14 +176,14 @@ VALUES
 | 2 | Bob | 2500.00 | new |
 | 3 | Carol | 800.00 | new |
 
-`INSERT`を実行すると、AthenaがS3にParquet形式のデータファイルを保存します。以下は、UPDATE・DELETE・OPTIMIZEなども試した後に、S3の`warehouse/orders/data/`を開いた画面です。
+`INSERT`を実行すると、AthenaがS3にParquet形式のデータファイルを保存します。以下は、一連の検証後にS3のデータ保存先を開き、Parquetファイルまでたどった画面です。
 
-![S3のIcebergテーブルのdataフォルダ直下に短い英数字のフォルダが5つ並ぶ画面](/images/aws-iceberg-lakehouse/10-s3-data-folders.png)
-*一連の検証後に確認した`data/`。この画面に表示されているのはフォルダで、Parquetファイルそのものではない。*
+![S3のwarehouse/orders/data配下のorder_date_monthパーティションに保存されたParquetファイル](/images/aws-iceberg-lakehouse/10-s3-parquet-file.png)
+*S3の`warehouse/orders/data/BRI2Xw/order_date_month=2026-11/`配下に保存されたParquetファイルの一例。*
 
-この短い英数字のフォルダ名は、IcebergがS3への書き込み時に使用するランダムなプレフィックスです。今回は複数の操作を試したためフォルダがいくつも見えていますが、**5つのフォルダが5件の注文や5回のINSERTを意味するわけではありません**。[^data-layout]
+`BRI2Xw`は書き込み時に付く短いプレフィックスで、`order_date_month=2026-11`は注文日で月単位にパーティション分割した保存先です。データはこのようにParquetファイルとして実際に保存されています。[^data-layout]
 
-Parquetファイルはさらに下の階層に保存されています。現在のテーブルがどのファイルを参照しているかは、後述する`orders$files`で確認します。
+ただし、**S3上にファイルがあることと、現在のIcebergテーブルがそのファイルを参照していることは別**です。現在参照しているデータファイルは、後述する`orders$files`で確認します。
 
 ### データの更新と削除
 
