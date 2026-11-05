@@ -352,6 +352,12 @@ VACUUMは期限切れスナップショットの整理や、不要になった�
 
 メンテナンス後に改めて確認したところ、現在のSELECTではAliceとBobの2件が、INSERT直後のスナップショットを指定したVersion Travelでは3件が取得できました。
 
+![OPTIMIZE・VACUUM後に現在のordersテーブルをSELECTした結果2件](/images/aws-iceberg-lakehouse/11-after-maintenance-current-select.png)
+*メンテナンス後の現在のデータ。更新済みのAliceとBobの2件が取得できている。*
+
+![OPTIMIZE・VACUUM後にVersion TravelでINSERT直後の注文3件を取得した結果](/images/aws-iceberg-lakehouse/12-after-maintenance-version-travel.png)
+*メンテナンス後のVersion Travel。現在は削除済みのCarolを含め、INSERT直後の3件が取得できている。*
+
 **OPTIMIZE・VACUUM実行後も、現在のデータと保持期間内の過去のデータの両方を参照できることが確認できました。**
 
 ## まとめ
