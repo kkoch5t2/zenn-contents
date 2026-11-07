@@ -52,41 +52,37 @@ https://zenn.dev/kkoch5t2/articles/9b1b800a58a6b7
 | ストレージ | Amazon S3 |
 | データカタログ | AWS Glue Data Catalog |
 | クエリエンジン | Amazon Athena engine version 3 |
-| テーブルフォーマット | Apache Icebergのテーブル形式 v2（format-version 2） |
-| データファイルの形式 | Parquet（Snappy圧縮） |
+| テーブルフォーマット | Apache Iceberg v2 |
+| ファイル形式 | Parquet（Snappy圧縮） |
 | データベース | `lakehouse_lab` |
 
 今回は通常のS3バケットを使用しており、Amazon S3 Tablesは使用していません。また、GlueはData Catalogとして利用し、ETLジョブは実行していません。
 
 ## システム構成
 
-今回の環境では、AthenaがSQLを実行し、Glue Data Catalogがテーブルの登録情報を、S3がデータ本体とIcebergのメタデータを保持します。
+今回の構成はシンプルです。
 
 ![AWSのシドニーリージョンでAthena、Glue Data Catalog、データ用とクエリ結果用の2つのS3バケットを組み合わせたIceberg検証環境](/images/aws-iceberg-lakehouse/13-architecture.png)
 *図1：今回の検証構成。実線はAthenaによる操作の向き、破線はカタログからS3上のメタデータへの参照関係を示す。*
 
-それぞれの役割は次のとおりです。
+Amazon S3にはIcebergのデータファイルとメタデータを保存します。AWS Glue Data Catalogにはテーブルの登録情報を保持し、AthenaがSQLの実行を担当します。
 
-| 構成要素 | 今回の役割 |
-| --- | --- |
-| Amazon Athena | SQLを実行し、Iceberg形式に従ってS3上のファイルを読み書きする |
-| AWS Glue Data Catalog | `lakehouse_lab.orders`のスキーマや、S3上のメタデータJSONの参照先を保持する |
-| Amazon S3：データ用バケット | Parquetのデータファイル、削除情報、Icebergのメタデータを保存する |
-| Amazon S3：クエリ結果用バケット | Athenaのクエリ結果を保存する。データ用バケットとは別に作成する |
-| Apache Iceberg | どのファイルをテーブルの一部として参照するかを、メタデータで管理するためのテーブルフォーマット |
+今回の構築で重要になるのは、IcebergがS3内のデータファイルを直接管理するのではなく、メタデータを通してテーブルの状態を管理していることです。
 
-利用者がAthenaでSQLを実行すると、AthenaはGlue Data Catalogからテーブルの登録情報を取得します。そこからS3上のIcebergメタデータをたどり、読み取るデータファイルや適用する削除情報を特定します。
+IcebergテーブルのS3上の構成は、概ね次のようになります。
 
-**Icebergは、S3とAthenaの間に配置する別のサーバーではありません。** 今回はAthenaがIcebergの仕組みを使ってファイルを読み書きし、テーブルの状態を更新します。また、Glue Data Catalogがデータ本体を保存したり、AthenaとS3の間のデータ転送を中継したりするわけではありません。
+```text
+warehouse/orders/
+├── data/
+│   └── .../*.parquet
+└── metadata/
+    ├── 00000-....metadata.json
+    ├── 00001-....metadata.json
+    ├── snap-....avro
+    └── ....-m0.avro
+```
 
-データ用バケットの`warehouse/orders/`配下には、主に次のファイルが保存されます。
-
-| 保存先 | 保存されるもの |
-| --- | --- |
-| `data/` | Parquetのデータファイルと、行の削除情報を記録したPosition Delete（位置削除）ファイル |
-| `metadata/` | テーブルのメタデータJSONと、ファイルの参照関係を管理するManifest List（マニフェストリスト）・Manifest（マニフェスト）のAvroファイル |
-
-メタデータJSONにはスナップショットの情報があり、Manifest ListとManifestを通じて、それぞれの時点で必要なデータファイルや削除ファイルをたどれるようになっています。
+データファイルを格納する`data/`と、スナップショットなどを管理する`metadata/`が分かれていることが特徴です。
 
 ![S3のorders配下にdataフォルダとmetadataフォルダが並んでいる画面](/images/aws-iceberg-lakehouse/03-s3-orders.png)
 *実際のS3の`warehouse/orders/`。`data/`と`metadata/`が分かれている。*
@@ -94,8 +90,6 @@ https://zenn.dev/kkoch5t2/articles/9b1b800a58a6b7
 ## 環境構築
 
 環境はCloudFormationを使って構築しました。
-
-操作には、CloudFormationでリソースを作成する権限に加え、Athenaのクエリ実行、Glue Data Catalogの参照・更新、S3の読み書きなどに必要なIAM権限がある既存のユーザーまたはロールを使用します。今回のテンプレートでは、操作用のIAMユーザーやロールは作成していません。
 
 ### AWSリソースの作成
 
@@ -158,9 +152,7 @@ TBLPROPERTIES (
 
 ### データの追加と参照
 
-空の`orders`テーブルに、3件の注文データを登録します。
-
-以下の`INSERT`は1回だけ実行します。同じSQLを繰り返すと同じ注文が追加され、この記事の行数やファイル数と一致しなくなります。
+まずは3件の注文データを登録します。
 
 ```sql
 INSERT INTO lakehouse_lab.orders
@@ -190,7 +182,7 @@ VALUES
 
 ### データの更新と削除
 
-Athenaでは、Icebergテーブルに対する`UPDATE`と`DELETE`をサポートしています。今回は、元のデータファイルをその場で書き換えるのではなく、削除情報を別のファイルに記録し、読み取り時に反映するMerge-on-Read（マージオンリード）方式で処理されます。これは、今回使用するAthenaの動作です。[^data]
+Athenaでは、Icebergテーブルに対する`UPDATE`と`DELETE`をサポートしています。[^data]
 
 続いてAliceの金額とステータスを更新します。
 
@@ -288,18 +280,18 @@ UPDATE・DELETEを実行したあとの結果は次のとおりでした。
 
 ここで重要なのは、**INSERT時のParquetファイルに元の3レコードが残っている**ことです。
 
-S3上のファイルをさらに確認すると、行の削除情報を保持するPosition Delete（位置削除）ファイルが2つ作成されていました。
+S3上のファイルをさらに確認すると、行の削除情報を保持するPosition Deleteファイルが2つ作成されていました。
 
-Position Deleteファイルには、削除対象となるデータファイルのパスと、そのファイル内の行の位置が記録されます。
+Position Deleteファイルには、削除対象となるデータファイルのパスと行の位置を記録します。
 
-今回のUPDATEでは、元のAliceの行に対する削除情報と、更新後のAliceの行が記録されます。更新後の行は新しいParquetファイルに保存され、これらは1つの更新トランザクションとして反映されます。DELETEでは、Carolの行の位置が削除対象として記録されていました。
+今回のUPDATEでは、元のAliceを削除扱いにしてから更新後のAliceを新しいParquetファイルに追加しています。DELETEでは、Carolの位置が削除対象として記録されていました。
 
-こうしたデータファイルと削除ファイルの参照関係も、Icebergのメタデータで管理されています。
+IcebergのメタデータJSONにも、データファイルが2つ、削除ファイルが2つという情報が記録されていました。
 
 ![S3のmetadata配下に保存されたIcebergメタデータJSONとAvroのファイル一覧](/images/aws-iceberg-lakehouse/04-s3-metadata.png)
 *S3の`metadata/`には、スナップショットやファイルの管理に使うJSON・Avroファイルが保存されている。*
 
-したがって、現在参照する2つのデータファイルには合計4レコードがあっても、古いAliceとCarolを削除扱いにする情報を適用すると、SQLの結果は更新後のAliceとBobの2件になります。
+したがって、物理的なデータファイルには合計4レコードがあっても、削除情報を適用したSQLの結果は2件になります。
 
 ### ファイルの最適化
 
@@ -326,11 +318,9 @@ Icebergテーブルのデータファイルを、読み取りやすい構成に�
 
 | 項目 | OPTIMIZE前 | OPTIMIZE後 |
 | --- | ---: | ---: |
-| 現在参照するデータファイル数 | 2 | 1 |
-| 上記ファイル内のレコード数（削除情報の適用前） | 4件 | 2件 |
-| 上記データファイルの合計サイズ | 1,588バイト | 760バイト |
-
-この表は、各時点で現在のテーブルが参照するデータファイルだけの比較です。**過去のスナップショットが参照するファイルや、削除ファイル・メタデータを含むS3全体の保存量ではありません。** また、今回はファイル構成の変化を確認しており、クエリ速度の改善は測定していません。
+| データファイル数 | 2 | 1 |
+| データファイル内のレコード数 | 4件 | 2件 |
+| データファイルの合計サイズ | 1,588バイト | 760バイト |
 
 ![OPTIMIZE後にAthenaのorders filesで確認したデータファイル1件](/images/aws-iceberg-lakehouse/06-files-after-optimize.png)
 *OPTIMIZE後。データファイルが1つにまとまり、現在有効な2件を保持している。*
@@ -349,13 +339,11 @@ VACUUM lakehouse_lab.orders;
 
 こちらも正常終了しました。
 
-VACUUMは、保持条件に従って古いスナップショットを失効させ、残すスナップショットから参照されなくなったファイルや、一定期間を経過した未参照ファイルを削除するための処理です。失効したスナップショットの状態は、Version Travelでも参照できなくなります。[^vacuum]
+VACUUMは期限切れスナップショットの整理や、不要になったファイルの削除を行うための処理です。
 
-ただし、正常終了したからといって古いファイルが必ず削除されるわけではありません。スナップショットの最大経過時間の既定値は5日間で、今回の検証では設定を変更していません。また、最低限残すスナップショット数の設定もあるため、5日を過ぎたものが必ずすべて消えるわけではありません。
+ただし、正常終了したからといって古いファイルが必ず削除されるわけではありません。Athenaのスナップショット保持期間のデフォルトは5日間で、今回の検証では設定を変更していません。
 
-今回作成したスナップショットは実行時点で5日を経過しておらず、VACUUM後も保持されていました。この検証で確認したのは、VACUUMの正常終了と、現在のデータ・保持された過去のデータを引き続き参照できることです。期限切れスナップショットの失効や、S3オブジェクトの物理削除までは確認していません。
-
-なお、ファイルの削除には、クエリを実行するユーザーやロールに`s3:DeleteObject`権限が必要です。この権限がなくてもVACUUM自体は正常終了する場合があるため、物理削除を検証するときは、実行結果に加えて権限とS3上のファイルも確認します。[^vacuum]
+そのため、実行直後の古いスナップショットも保持されていました。物理的に削除されたS3オブジェクト数は今回確認していません。
 
 メンテナンス後に改めて確認したところ、現在のSELECTではAliceとBobの2件が、INSERT直後のスナップショットを指定したVersion Travelでは3件が取得できました。
 
@@ -366,12 +354,6 @@ VACUUMは、保持条件に従って古いスナップショットを失効さ�
 *メンテナンス後のVersion Travel。現在は削除済みのCarolを含め、INSERT直後の3件が取得できている。*
 
 **OPTIMIZE・VACUUM実行後も、現在のデータと保持期間内の過去のデータの両方を参照できることが確認できました。**
-
-### 検証後の後片付け
-
-検証を終えて環境が不要になったら、必要な結果を退避し、今回作成した2つのS3バケットを空にしてから、CloudFormationの`lakehouse-lab`スタックを削除します。バケット内にオブジェクトが残っていると、スタックからのバケット削除は失敗します。[^cleanup]
-
-削除前に、CloudFormationの出力で対象のバケット名を確認してください。データ用バケットを空にすると、現在のデータも過去のスナップショットを参照するためのファイルも失われます。
 
 ## まとめ
 
@@ -391,7 +373,4 @@ S3上のファイルとIcebergのメタデータを確認すると、SQLから�
 [^time-travel]: [Amazon Athena公式：Time TravelとVersion Travel](https://docs.aws.amazon.com/athena/latest/ug/querying-iceberg-time-travel-and-version-travel-queries.html)。スナップショットを指定した過去データの参照方法を確認。
 [^optimization]: [Amazon Athena公式：Icebergテーブルの最適化](https://docs.aws.amazon.com/athena/latest/ug/querying-iceberg-data-optimization.html)。`OPTIMIZE`や`VACUUM`の仕組みと注意点を参照。
 [^data-layout]: [AWS Big Data Blog：Optimize data layout by bucketing with Amazon Athena and AWS Glue to accelerate downstream queries](https://aws.amazon.com/blogs/big-data/optimize-data-layout-by-bucketing-with-amazon-athena-and-aws-glue-to-accelerate-downstream-queries/)。Icebergの`data/`配下にランダムなプレフィックスが生成され、その下にデータファイルが配置される構成を参照。
-
 [^optimize]: [Amazon Athena公式：OPTIMIZE](https://docs.aws.amazon.com/athena/latest/ug/optimize-statement.html)。対象ファイルの選択と、書き換え時のスキャン量に応じた課金を参照。
-[^vacuum]: [Amazon Athena公式：VACUUM](https://docs.aws.amazon.com/athena/latest/ug/vacuum-statement.html)。保持条件、スナップショットの失効、ファイル削除に必要な権限を参照。
-[^cleanup]: [AWS CloudFormation公式：DeletionPolicy](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-attribute-deletionpolicy.html)。S3バケットの削除には、バケット内の全オブジェクトを削除しておく必要があることを参照。
