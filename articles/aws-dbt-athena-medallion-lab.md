@@ -190,15 +190,20 @@ https://github.com/kkoch5t2/medallion-fargate-lab
 今回の認証では`aws login`を使いました。ブラウザで対象アカウントへサインインし、リージョンは`ap-southeast-2`を指定します。
 
 ```powershell
+# ブラウザでAWSへログインし、CLI用の一時認証情報を取得する
 aws login --profile medallion-signin
 ```
 
 Python側からは、AWS CLIが出力する一時認証情報を`credential_process`で利用するプロファイルを設定しました。
 
 ```powershell
+# ログイン済みのmedallion-signinから認証情報を取得するよう、操作用プロファイルを設定する
 aws configure set credential_process "aws configure export-credentials --profile medallion-signin --format process" --profile medallion-lab
+# 操作用プロファイルの既定リージョンをシドニーに設定する
 aws configure set region ap-southeast-2 --profile medallion-lab
+# このPowerShellで使用するAWSプロファイルを指定する
 $env:AWS_PROFILE = "medallion-lab"
+# 接続中のAWSアカウントと操作主体を確認する
 aws sts get-caller-identity
 ```
 
@@ -210,8 +215,11 @@ https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sign-in.html
 続いて、プロジェクトフォルダに移動して操作用のPython環境を作ります。
 
 ```powershell
+# 展開した検証用プロジェクトのフォルダへ移動する
 cd C:\path\to\medallion-fargate-lab
+# Python 3.12で、このプロジェクト専用の仮想環境を作成する
 py -3.12 -m venv .venv
+# 仮想環境に、AWS操作用スクリプトの依存ライブラリをインストールする
 .\.venv\Scripts\python.exe -m pip install -r requirements-operator.txt
 ```
 
@@ -222,14 +230,18 @@ py -3.12 -m venv .venv
 前回のCloudFormationスタック`lakehouse-lab`の出力から、データ用・クエリ結果用のバケット名を取得しました。
 
 ```powershell
+# 前回作成したlakehouse-labスタックの出力を取得し、PowerShellのオブジェクトへ変換する
 $outputs = aws cloudformation describe-stacks `
   --stack-name lakehouse-lab `
   --region ap-southeast-2 `
   --query "Stacks[0].Outputs" --output json | ConvertFrom-Json
 
+# スタックの出力から、既存のデータ用S3バケット名を取り出す
 $dataBucket = ($outputs | Where-Object OutputKey -eq "DataBucketName").OutputValue
+# スタックの出力から、既存のクエリ結果用S3バケット名を取り出す
 $resultsBucket = ($outputs | Where-Object OutputKey -eq "QueryResultsBucketName").OutputValue
 
+# 既存バケットを指定してビルド用基盤を作成し、作業設定を保存する
 .\.venv\Scripts\python.exe scripts/lab.py init `
   --data-bucket "$dataBucket" `
   --results-bucket "$resultsBucket" `
@@ -243,7 +255,9 @@ $resultsBucket = ($outputs | Where-Object OutputKey -eq "QueryResultsBucketName"
 ### コンテナをビルドして実行基盤をデプロイする
 
 ```powershell
+# CodeBuildでコンテナイメージを作成してECRへ登録し、イメージ情報を保存する
 .\.venv\Scripts\python.exe scripts/lab.py build
+# ビルド済みイメージを指定し、CloudFormationでFargateなどの実行基盤を作成・更新する
 .\.venv\Scripts\python.exe scripts/lab.py deploy
 ```
 
@@ -287,6 +301,7 @@ ECRには`build-1`タグのイメージが1個登録されました。ここで�
 ### CSVをアップロードする
 
 ```powershell
+# 初回バッチの注文CSVを、S3のBronze用プレフィックスへアップロードする
 .\.venv\Scripts\python.exe scripts/lab.py upload --batch 001
 ```
 
@@ -299,12 +314,14 @@ ECRには`build-1`タグのイメージが1個登録されました。ここで�
 ### Step Functionsを起動する
 
 ```powershell
+# Step Functionsを起動し、Fargate上でdbtを実行してワークフローの終了を待つ
 .\.venv\Scripts\python.exe scripts/lab.py run
 ```
 
 Step FunctionsがFargateタスクを起動し、コンテナ内で次のコマンドを実行します。
 
 ```bash
+# lab接続設定を使い、依存関係に従ってモデルの作成とデータテストを実行する
 dbt build --target lab
 ```
 
@@ -375,6 +392,7 @@ Athenaではワークグループを`medallion-lab-wg`に切り替えます。�
 ### Bronzeは8行
 
 ```powershell
+# Athenaで確認用SELECTを実行し、Bronze・Silver・Goldの結果を表示する
 .\.venv\Scripts\python.exe scripts/lab.py verify
 ```
 
@@ -413,6 +431,7 @@ Bronzeの8行は、正常4行、不正3行、Aliceの古い更新1行として�
 ### Goldは注文2件、売上3850.00
 
 ```sql
+-- Goldの日別売上を、注文日の昇順で確認する
 select *
 from medallion_lab_gold.daily_sales
 order by order_date;
@@ -483,6 +502,7 @@ https://docs.getdbt.com/docs/build/documentation?version=1.12
 検証環境を削除する場合は、実行中のビルド・ワークフロー・タスクがないことを確認し、次を実行します。
 
 ```powershell
+# 今回の検証リソースと専用プレフィックス内のデータを削除する（既存バケット本体は残す）
 .\.venv\Scripts\python.exe scripts/lab.py cleanup --confirm medallion-lab
 ```
 
