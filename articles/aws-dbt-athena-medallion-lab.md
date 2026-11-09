@@ -3,7 +3,7 @@ title: "dbt・Athena・ECS Fargateでメダリオンアーキテクチャを構�
 emoji: "🥉"
 type: "tech"
 topics: ["aws", "dbt", "athena", "apacheiceberg", "ecs"]
-published: false
+published: true
 ---
 
 前回は、Amazon S3・Amazon Athena・AWS Glue Data Catalogを使い、Apache Icebergの更新・削除やタイムトラベルを検証しました。
