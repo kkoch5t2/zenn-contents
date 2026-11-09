@@ -70,6 +70,10 @@ https://docs.aws.amazon.com/step-functions/latest/dg/connect-ecs.html
 
 今回は単一の検証環境です。ECSサービスや自動実行スケジュールは作成せず、手動で単発タスクを起動します。NAT GatewayやVPCエンドポイントも使用していません。社内向けの閉域ネットワークを再現した構成ではありません。
 
+![Fargateのタスク定義とリソース設定](/images/aws-dbt-medallion/15-task-definition.png)
+*タスク定義ではFargate、Linux/X86_64、awsvpc、0.5 vCPU・1 GiBを確認できます。ACTIVEは定義の状態であり、コンテナが実行中という意味ではありません。*
+
+
 ## 2. Bronze・Silver・Goldの設計
 
 ### 何を各層に置くか
@@ -249,6 +253,28 @@ CodeBuildのビルド環境では、Dockerビルド用に`PrivilegedMode`を有�
 
 CloudFormationが作るのはインフラとBronzeの外部テーブルまでです。Silver・GoldのIcebergテーブルは、dbtを実行したときに作成します。
 
+#### CloudFormation・CodeBuild・ECRで確認する
+
+CloudFormationでは、ビルド用の`medallion-lab-ecr`と、実行基盤用の`medallion-lab`の両方が`CREATE_COMPLETE`になっていることを確認します。
+
+![CloudFormationの2スタックが作成完了](/images/aws-dbt-medallion/10-cfn-stacks.png)
+
+
+![実行基盤スタックのイベント履歴](/images/aws-dbt-medallion/11-cfn-events.png)
+*イベントタブでも、スタックの作成完了を確認できます。*
+
+CodeBuildのビルド履歴では、初回ビルドが成功しています。フェーズ詳細を開くと、ソース取得、ビルド、後処理などの進行状況も確認できます。
+
+![CodeBuildの成功したビルド履歴](/images/aws-dbt-medallion/12-codebuild-history.png)
+
+
+![CodeBuildの各フェーズの成功](/images/aws-dbt-medallion/13-codebuild-phases.png)
+
+ECRには`build-1`タグのイメージが1個登録されました。ここで表示されるダイジェストを、Fargateのタスク定義が参照するイメージの固定に使います。
+
+![ECRに登録されたビルド済みイメージ](/images/aws-dbt-medallion/26-ecr-image.png)
+
+
 :::message
 実行順序は **init → build → deploy → upload → run → verify** です。`init`前に`build`すると`.lab.json`がなく、`build`前に`deploy`するとイメージ情報がありません。初期化が成功した後は、設定ファイルを残して次の手順へ進みます。
 :::
@@ -262,6 +288,10 @@ CloudFormationが作るのはインフラとBronzeの外部テーブルまでで
 ```
 
 保存先は、既存データ用バケット内の`medallion-lab/bronze/orders/orders-001.csv`です。同じコマンドを繰り返しても、同じキーへ上書きします。別名のCSVとして重複アップロードすると、Bronze側の行数が変わるため注意します。
+
+![S3に保存したBronzeの注文CSV](/images/aws-dbt-medallion/21-s3-bronze.png)
+*orders/配下にorders-001.csvが1個あります。CSVの内容は前掲の注文サンプルです。*
+
 
 ### Step Functionsを起動する
 
@@ -309,7 +339,35 @@ Done. PASS=11 WARN=0 ERROR=0 SKIP=0 NO-OP=0 REUSED=0 TOTAL=11
 
 成果物を保存してから、dbtの終了コードでコンテナを終了します。dbtが失敗した場合に、保存処理の成功だけでワークフローを成功扱いにしないためです。
 
+![S3に保存されたdbtの実行成果物](/images/aws-dbt-medallion/22-s3-artifacts.png)
+*実行ごとのプレフィックスにexit.json、logs/、target/が保存されています。*
+
+
+![target配下のmanifestとrun_results](/images/aws-dbt-medallion/23-s3-dbt-target.png)
+*target/配下でmanifest.jsonとrun_results.jsonを確認できます。コンテナ停止後も、この保存先から実行内容を調べられます。*
+
+
 ## 5. Bronze・Silver・Goldの結果を確認する
+
+### GlueとAthenaで確認する場所
+
+Glue Data Catalogでは、`medallion_lab_silver`に`orders_clean`と`orders_rejected`が登録されています。テーブル詳細で保存形式、スキーマでカラム名と型を確認します。
+
+![Glueに登録されたSilverの2テーブル](/images/aws-dbt-medallion/16-glue-silver-tables.png)
+
+
+![orders_cleanのApache Iceberg形式](/images/aws-dbt-medallion/17-glue-iceberg.png)
+*Table formatがApache Icebergになっています。*
+
+
+![orders_cleanのカラムと型](/images/aws-dbt-medallion/18-glue-schema.png)
+*order_idはbigint、amountはdecimal(12,2)、order_dateはdate、source_updated_atはtimestampです。*
+
+Athenaではワークグループを`medallion-lab-wg`に切り替えます。「最近のクエリ」には、dbtが実行したSQLと、その後に`verify`で実行した確認用SELECTが並びます。
+
+![専用ワークグループのAthena実行履歴](/images/aws-dbt-medallion/19-athena-history.png)
+*撮影時は履歴から保存済みの結果を開きました。撮影のためのSQL再実行はしていません。*
+
 
 ### Bronzeは8行
 
@@ -334,6 +392,9 @@ Done. PASS=11 WARN=0 ERROR=0 SKIP=0 NO-OP=0 REUSED=0 TOTAL=11
 
 Aliceは最新の更新だけが残り、金額が1350.00、ステータスが`paid`になっています。顧客名の前後の空白も取り除かれました。
 
+![Athenaで確認したSilverの正常行4件](/images/aws-dbt-medallion/20-athena-silver.png)
+
+
 一方、次の3行は不正行のテーブルへ分かれています。
 
 | order_id | rejection_reason | 原因 |
@@ -342,7 +403,7 @@ Aliceは最新の更新だけが残り、金額が1350.00、ステータスが`p
 | 5 | invalid_date | 注文日が`bad-date`で日付へ変換できない |
 | NULL | invalid_order_id | 注文IDが空欄 |
 
-![Silverで隔離された不正行](/images/aws-dbt-medallion/07-silver-rejected.png)
+![Silverで隔離された不正行](/images/aws-dbt-medallion/25-athena-rejected.png)
 
 Bronzeの8行は、正常4行、不正3行、Aliceの古い更新1行として説明できます。
 
@@ -360,9 +421,16 @@ order by order_date;
 
 Aliceの1350.00とBobの2500.00を合計した結果です。Carolはキャンセル、Frankは未払いなので、この集計には含まれません。2026-11-02には支払い済みの正常注文がないため、0円の行を作るのではなく、その日付の行自体がありません。
 
-![Goldの日別集計結果](/images/aws-dbt-medallion/08-gold-result.png)
+![Goldの日別集計結果](/images/aws-dbt-medallion/24-athena-gold.png)
 
 初回実行で、CSVの原本を保存するBronze、整形・重複整理・不正行の隔離を行うSilver、利用目的に合わせて集計するGoldまでの流れを確認できました。
+
+### 変換後データのS3保存先
+
+データ用バケットの`medallion-lab/tables/`配下には、Silver・Goldに対応するプレフィックスが作成されています。テーブルの定義はGlue、データやIcebergのメタデータファイルはS3で確認します。
+
+![SilverとGoldのS3保存先](/images/aws-dbt-medallion/27-s3-tables.png)
+
 
 ## 6. 実行後の状態と、今回の検証範囲
 
@@ -371,6 +439,10 @@ Aliceの1350.00とBobの2500.00を合計した結果です。Carolはキャン�
 Fargate上のdbtは常駐させていません。SQLを投げた直後に終了するのではなく、Athenaの処理完了、後続モデル、データテスト、成果物の保存まで終えてから停止します。
 
 記事用の撮影時にも、CloudFormationが`CREATE_COMPLETE`、Step Functionsが`SUCCEEDED`、ECSクラスターの実行中タスク・待機中タスク・サービス数がすべて0であることを確認しました。
+
+![ECSの実行中タスクと保留中タスクは0件](/images/aws-dbt-medallion/14-ecs-idle.png)
+*ECSコンソールでもサービス0件、実行中0件、保留中0件です。*
+
 
 ![PowerShellで実行後の状態を確認](/images/aws-dbt-medallion/09-powershell-status.png)
 *構築後の状態を読み取り専用コマンドで再確認した画面です。表示コマンドの一部の引数は省略しています。撮影のためのビルドやFargate再実行は行っていません。*
