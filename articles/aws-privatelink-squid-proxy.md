@@ -8,6 +8,16 @@ published: true
 
 AWS PrivateLinkを使い、**アカウントBのLambdaから、アカウントAのSquidプロキシを経由してインターネットへ接続する構成**を検証しました。
 
+:::message
+**Squid（スクイッド）とは？**
+
+Squidは、クライアントとWebサーバーの間でHTTP・HTTPS通信を中継する、オープンソースのプロキシサーバーソフトウェアです。キャッシュや、接続先へのアクセス制御などの機能があります。
+
+この記事では、A側のEC2にSquidをインストールし、B側のLambdaに代わって外部サイトへ接続する「フォワードプロキシ」として使います。
+
+参考：[Squid公式サイト](https://www.squid-cache.org/)
+:::
+
 B側にはInternet GatewayもNAT Gatewayも置かず、アプリケーションが明示的にA側のプロキシを使います。検証先には、アクセス元のパブリックIPを返す `https://checkip.amazonaws.com/` を使用しました。
 
 最初はA・Bそれぞれで1つのサブネットを使って疎通を確認しました。その後、複数のAvailability Zone（AZ）への配置による耐障害性も考え、各アカウントに別のAZのサブネットを1つずつ追加し、NLB・EC2・Endpointなどの設定を更新して再度検証しました。
