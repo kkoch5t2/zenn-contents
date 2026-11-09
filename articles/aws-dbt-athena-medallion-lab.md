@@ -253,6 +253,9 @@ CodeBuildのビルド環境では、Dockerビルド用に`PrivilegedMode`を有�
 
 CloudFormationが作るのはインフラとBronzeの外部テーブルまでです。Silver・GoldのIcebergテーブルは、dbtを実行したときに作成します。
 
+![CloudFormationが作成するリソースの構成図](/images/aws-dbt-medallion/28-cloudformation-resources.png)
+*今回の2スタックが作成するリソースを示しています。Silver・GoldのデータベースはCloudFormationで作成し、その中のIcebergテーブルはdbtで作成します。*
+
 #### CloudFormation・CodeBuild・ECRで確認する
 
 CloudFormationでは、ビルド用の`medallion-lab-ecr`と、実行基盤用の`medallion-lab`の両方が`CREATE_COMPLETE`になっていることを確認します。
@@ -495,3 +498,4 @@ https://docs.getdbt.com/docs/build/documentation?version=1.12
 - [AWS：Step FunctionsからECS・Fargateを実行](https://docs.aws.amazon.com/step-functions/latest/dg/connect-ecs.html)
 - [AWS：Fargateのタスクネットワーク](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/fargate-task-networking.html)
 - [AWS：CodeBuildのDockerイメージビルド例](https://docs.aws.amazon.com/codebuild/latest/userguide/sample-docker.html)
+
