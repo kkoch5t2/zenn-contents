@@ -52,6 +52,18 @@ B側にはInternet GatewayもNAT Gatewayも置かず、アプリケーション�
 
 たとえば、Snowflakeのように接続元IPを制限するサービスとの連携を考えるときも、「Aのプロキシ経由で公開エンドポイントへ接続する方式」と「接続先が提供するPrivateLinkでプライベート接続する方式」は分けて考える必要があります。今回確認したのは前者につながるプロキシ経路です。Snowflakeへの接続自体は、この検証には含めていません。
 
+:::message
+**ENI（Elastic Network Interface）とは？**
+
+ENIは、VPC内で使う**仮想的なネットワークカード**です。プライベートIPアドレスやセキュリティグループなどが関連付けられ、EC2やAWSサービスがVPC内で通信するための接続口になります。
+
+今回のB側では、Interface VPC Endpointを作成すると、指定した各サブネットにEndpoint用のENIが自動作成されます。2AZの2サブネットを指定しているため、Endpoint用のENIも合計2つです。それぞれに、そのサブネットの範囲からプライベートIPアドレスが割り当てられます。
+
+BのLambdaは、EndpointのDNS名を名前解決して得たENIのプライベートIPへ接続し、そこからPrivateLink経由でAのNLBへ通信します。**図中のEndpoint ENIは、B側にあるPrivateLinkの接続口**と捉えると分かりやすいです。
+
+参考：[AWS公式：Elastic Network Interface](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html)、[AWS公式：PrivateLinkの概念](https://docs.aws.amazon.com/vpc/latest/privatelink/concepts.html)
+:::
+
 ### 構成リソース
 
 CloudFormationテンプレートで明示的に作成・設定しているリソースをまとめます。AZを2つ使っていても、NLBやInterface Endpoint自体を2個ずつ作る構成ではありません。
