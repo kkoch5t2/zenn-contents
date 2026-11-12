@@ -6,13 +6,13 @@ topics: ["aws", "bedrock", "security", "cloudwatch", "個人情報"]
 published: true
 ---
 
-> **2026年10月9日（日本時間）時点**のAWS公式ドキュメントに基づく備忘録です。仕様は変わる可能性があります。
+> **2026年11月13日（日本時間）時点**のAWS公式ドキュメントと、AWS上での検証に基づく備忘録です。仕様は変わる可能性があります。
 
 最近、仕事でAmazon Bedrockを設定することになりました。そこでまず気になったのが、個人情報の扱いです。社内のルールで、入力された個人情報がシステムに保存されると、セキュリティ審査が厳しくなります。最初から保存しない形にできないかと考えました。
 
 調べてみると、Bedrockには「Bedrock Guardrails」という機能があると知りました。これで個人情報をマスクすれば、保存も防げるのでは？と思ったのですが、そう単純ではありませんでした。モデルに渡す入力はマスクできても、**モデル呼び出しログには元の入力が残り得ます**。
 
-この記事では、Bedrock Guardrailsで隠せる範囲と、Bedrockのログに個人情報を残さないための設定を、備忘録としてまとめます。
+この記事では、Bedrock Guardrailsで隠せる範囲と、Bedrockのログに個人情報を残さないための設定をまとめます。今回は架空の氏名・メールアドレスを使い、**入力のマスクとブロック、CloudWatch Logs・S3への記録、ログ表示時のマスクまで実際に確認しました**。
 
 ## まず結論
 
@@ -23,6 +23,20 @@ published: true
 | ユーザー → Bedrockの呼び出しログ | ログを有効にすると、指定したCloudWatch LogsのロググループかS3バケットに**入力の原文**が記録される |
 
 つまり、**Bedrock Guardrailsでモデルへの入力をマスクしても、Bedrockのログまでマスクされるわけではありません**。なお、個人情報の検出に漏れがないという保証もありません。[^sensitive]
+
+:::details 今回の検証条件
+| 項目 | 条件 |
+| --- | --- |
+| 検証日 | 2026年11月13日 |
+| リージョン | シドニー（ap-southeast-2） |
+| モデル | Amazon Nova Micro（amazon.nova-micro-v1:0） |
+| 対象の機密情報 | 組み込みPIIのNAME・EMAIL |
+| API | ApplyGuardrail、Converse |
+| ログ保存先 | 専用のCloudWatch LogsロググループとS3バケット |
+| ログのデータ保護 | 検証用ロググループにEmailAddressのポリシーを適用 |
+
+氏名・メールアドレスはすべて架空の値です。キャプチャーは同じ設定で再実行して撮影し、アカウント情報が写らない範囲を掲載しています。検証後はモデル呼び出しログの設定を元に戻し、作成したリソースを削除しました。
+:::
 
 ## データはどこを通るのか
 
@@ -72,6 +86,36 @@ flowchart TD
 
 例えば「山田太郎のメールはtaro@example.comです」と入力したとします。対象の個人情報を検出し、入力側のマスクを設定していれば、モデルには氏名やメールアドレスを`{NAME}`や`{EMAIL}`へ置き換えて渡せます。出力側にも設定すれば、回答中の個人情報もマスクできます。`BLOCK`を選べば、内容をブロックすることもできます。[^sensitive]
 
+#### 実際に日本語の氏名・メールアドレスをマスクしてみる
+
+Bedrockコンソールで「Use ApplyGuardrail API」を有効にし、評価対象に「Input」を選択して、次の架空情報を送りました。この操作ではモデルを呼び出さず、ガードレール単体の変換結果を確認できます。
+
+> 以下は検証用の架空情報です。顧客の氏名は山田太郎で、連絡用メールアドレスは taro@example.com です。
+
+結果は、氏名が`{NAME}`、メールアドレスが`{EMAIL}`に置き換わりました。同じ文章を「Output」として評価した場合も、同様にマスクされました。
+
+![Bedrockコンソールで日本語の氏名とメールアドレスがマスクされた結果](/images/bedrock-guardrails-pii-logging/01-guardrail-mask.jpg)
+*上が入力した架空情報、下のGuardrails Responseがマスク後の文章です。*
+
+#### 入力側の動作まで確認する
+
+今回、PII種類の`action`だけを`ANONYMIZE`にし、`inputEnabled`・`outputEnabled`を有効にした条件では、入力中の氏名・メールアドレスは検出されたものの、入力評価の`action`は`NONE`でした。出力側ではマスクされていたため、**回答が隠れているだけでは、モデルに渡す前の入力もマスクされたとは判断できません**。
+
+そこで、入力・出力それぞれの動作を明示しました。EMAILの設定例は次のとおりです。NAMEにも同じ動作を設定しています。[^actions]
+
+```json
+{
+  "type": "EMAIL",
+  "action": "ANONYMIZE",
+  "inputAction": "ANONYMIZE",
+  "outputAction": "ANONYMIZE",
+  "inputEnabled": true,
+  "outputEnabled": true
+}
+```
+
+この設定では、ApplyGuardrailのInput・Output両方で置換され、Converseでも入力評価の`action`が`ANONYMIZED`になることを確認できました。これは今回のリージョン・DRAFT・設定の組み合わせでの結果です。入力のマスクを目的にする場合は、**入力側の動作を指定し、トレースの入力評価まで確認する**ようにします。
+
 ただし、**元の入力はBedrock Guardrails（AWSサーバー）には届きます**。「AWSへ送る前に個人情報を消したい」場合は、送信する側で先にマスクします。
 
 検出は確実ではありません。日本固有の番号や社内番号などは、対応するPII種類を確認し、必要ならカスタム正規表現や送信前のチェックを追加します。[^sensitive]
@@ -81,39 +125,67 @@ flowchart TD
 
 ### ② 呼び出しログには原文が残る
 
-AWSは、Bedrock Guardrailsを適用しても、CloudWatch Logsのモデル呼び出しログの`input`には次の内容が入ると明記しています。[^sensitive]
+AWSは、Bedrock Guardrailsを適用しても、CloudWatch Logsのモデル呼び出しログの`input`には、加工前のリクエストが記録されると説明しています。[^sensitive] また、AWS公式Security Blogの[「Implementing least privilege access for Amazon Bedrock」](https://aws.amazon.com/blogs/security/implementing-least-privilege-access-for-amazon-bedrock/)でも、CloudWatch Logs・S3のログにはガードレール適用前の入力が含まれると説明されています。
 
-> 「Amazon CloudWatch Logs の `input` フィールドには、ガードレールの介入に関係なく、常に変更されていない元のリクエストが含まれます。」
+#### 入力をマスクしてもログには原文が記録された
 
-これは、**Bedrock Guardrailsが入力をマスクまたはブロックした場合でも、モデル呼び出しログの`input`には加工前のリクエスト原文が記録される**という意味です。モデルに渡される入力がマスクされても、ログまでマスクされるわけではありません。Bedrock Guardrailsのトレースにある`match`も元のPIIを含み得ます。[^sensitive]
+今回は、入力評価が`ANONYMIZED`になったConverseの呼び出しを、CloudWatch LogsとS3の両方で照合しました。どちらも、次のフィールドに**山田太郎・taro@example.comを含む原文**が残っていました。
 
-ただし、モデル呼び出しログは最初から保存されるわけではありません。AWSは次のように書いています。[^logging]
+```text
+input.inputBodyJson.messages[0].content[0].text
+```
 
-> 「モデル呼び出しログ記録はデフォルトで無効になっています。」
+![CloudWatch Logsのモデル呼び出しログに原文が記録されている画面](/images/bedrock-guardrails-pii-logging/02-cloudwatch-original.jpg)
+*入力側のマスクを有効にした呼び出しでも、ログのinputには置換前の氏名・メールアドレスが含まれています。画像はCloudWatch Logsの入力フィールドの抜粋です。S3のログも取得して、同じ原文を確認しました。*
 
-「モデル呼び出しログはデフォルトでは無効」です。有効にしたときは、CloudWatch Logs、S3、または両方に入力・出力などを記録できます。AWSは両保存先のログ形式について、こう説明しています。[^logging]
+入力ブロックでも、`LAB_INPUT_BLOCKED`が返り、モデルの入出力トークンがともに0になった一方、入力の原文は両保存先に記録されました。逆に、送信前にメールアドレスを`[EMAIL_REDACTED]`へ置き換えた場合は、ログにも置換後の文章が記録されました。
 
-> 「形式は、CloudWatch Logs と Amazon S3 の送信先の両方で同じです。」
+| 実際に試した条件 | CloudWatch Logs・S3の入力ログ |
+| --- | --- |
+| Bedrock Guardrailsで入力をマスク | マスク前の原文が残る |
+| Bedrock Guardrailsで入力をブロック | ブロック前の原文が残る |
+| Bedrockへ送る前にマスク | 送信したマスク済みの文が記録される |
 
-「CloudWatch LogsとS3で形式は同じ」です。さらに、AWS公式Security Blogの[「Implementing least privilege access for Amazon Bedrock」](https://aws.amazon.com/blogs/security/implementing-least-privilege-access-for-amazon-bedrock/)（2025年2月公開）でも、両方をログの保存先として挙げたうえで、次のように説明しています。
+#### トレースにも元の値が含まれる
 
-> Even with Amazon Bedrock guardrails in place, the contents of these logs contain the pre-guardrailed user input, ...
+マスクが成功したConverseのトレースにも、検出結果の`match`として、元のメールアドレスが含まれていました。[^sensitive]
 
-「Bedrock Guardrailsを適用していても、ログには適用前のユーザー入力が含まれる」という意味です。**CloudWatch Logsだけでなく、S3のモデル呼び出しログにもマスク前の原文が残る**ことを、AWS公式ブログも明記しています。
+```json
+{
+  "match": "taro@example.com",
+  "type": "EMAIL",
+  "action": "ANONYMIZED",
+  "detected": true
+}
+```
 
-最近の検証例としては、QESが2026年9月に公開した[「Claude Apps Gateway経由でAmazon Bedrock Guardrailsが機能するか検証してみた」](https://www.qes.co.jp/media/aws/a1103)も参考になります。架空のGitHubトークンをマスク対象にして試したところ、モデル側ではトークンが別の文字列に置き換わった一方、**モデル呼び出しログにはマスク前のトークンがそのまま記録されていました**。なお、QESの記事で実際のログ画面が掲載されているのはCloudWatch Logs側です。S3については、前述のAWS公式Security Blogの説明が裏付けになります。
+このため、**APIレスポンスのトレースをアプリ側でそのままログに出す場合も、原文の扱いを確認する必要があります**。
 
-なお、CloudWatch Logsを選んでも、大きな本文などの保存先にS3を設定していれば、そのデータはS3へ送られます。[^logging]
+モデル呼び出しログはデフォルトで無効です。ログを有効にすると、CloudWatch Logs、S3、または両方へ入力・出力などを記録できます。CloudWatch Logsを選んでも、大きな本文などの保存先としてS3を設定していれば、そのデータはS3へ送られます。[^logging]
 
 ## CloudWatch Logsにはログの個人情報を隠す機能がある
 
-CloudWatch Logsには「データ保護ポリシー」という機能があります。Bedrockの呼び出しログを保存するロググループに設定すると、メールアドレスなどの機密情報を検出し、権限のない利用者がログを見るときにマスクできます。[^cloudwatch]
+CloudWatch Logsには「データ保護ポリシー」という機能があります。Bedrockの呼び出しログを保存するロググループに設定すると、メールアドレスなどの機密情報を検出し、**通常のログ表示でマスクできます**。原文を確認するには、`logs:Unmask`権限が必要です。[^cloudwatch]
 
-ただし、これは保存された原文を削除する機能ではありません。AWSは次のように書いています。[^cloudwatch]
+### 通常表示と原文表示を比べる
 
-> 「マスクされていないデータを閲覧できるのは、`logs:Unmask` IAMアクセス許可を持つユーザーのみです。」
+検証用ロググループにEmailAddressのデータ保護ポリシーを設定し、反映を確認してから、`verified.mask@example.com`を含む架空情報をBedrockへ送りました。CloudWatch Logsの通常表示では、入力中のメールアドレスがアスタリスクになりました。
 
-`logs:Unmask`権限を持つ人には元の値が見えます。つまり、**画面で隠す機能であって、原文を保存しない機能ではありません**。設定前のログには遡って適用されず、S3へ直接保存したデータも対象外です。[^cloudwatch]
+![CloudWatch Logsのデータ保護ポリシーによってメールアドレスがマスクされた通常表示](/images/bedrock-guardrails-pii-logging/03-cloudwatch-masked.jpg)
+*通常表示では、入力中のメールアドレスがアスタリスクで隠れています。*
+
+続いて、同じログを表示メニューの「保護されたデータのマスキングを一時的に解除」で確認すると、元の`verified.mask@example.com`が見えました。APIでも、`unmask=false`と`unmask=true`で同じ違いを確認しています。
+
+![同じCloudWatch Logsのログをマスク解除して原文のメールアドレスを確認した画面](/images/bedrock-guardrails-pii-logging/04-cloudwatch-unmasked.jpg)
+*上の画像と同じ呼び出しのログです。権限のある利用者がマスクを解除すると、元の値を確認できます。*
+
+今回は、`logs:Unmask`権限を持つ同じ利用者で表示方法を切り替えた比較です。**権限があっても通常表示ではマスクされますが、原文を取得することは可能**でした。S3に直接保存されたログには、このCloudWatch Logsのポリシーによるマスクは適用されず、元の値が残っていました。
+
+### 原文を保存しないための機能ではない
+
+この結果からも、**表示時のマスクと、原文を保存しないことは区別する必要があります**。データ保護ポリシーは原文を削除する機能ではありません。設定前に取り込まれたログには遡って適用されず、S3へ直接保存したデータも対象外です。[^cloudwatch]
+
+実際に、ポリシー設定前に取り込まれたログは、設定後も通常表示で原文が見えました。また、設定直後にはマスクされなかったログもあったため、新しく投入したテスト用ログがマスクされることを確認してから、Bedrockを再度呼び出しています。
 
 呼び出しログに原文を残したくないなら、**ログを有効にしない**か、**Bedrockへ送る前に入力をマスクする**ことを検討します。
 
@@ -146,7 +218,7 @@ AWSのAmazon Bedrock紹介ページは、Bedrockがデータをモデル学習�
 
 | 目的 | 対策 |
 | --- | --- |
-| モデルに個人情報を渡したくない | 入力側のBedrock Guardrails。AWSへの送信自体を避けるなら送信前にマスク |
+| モデルに個人情報を渡したくない | 入力側のBedrock Guardrailsでマスク動作を指定し、入力評価まで確認。AWSへの送信自体を避けるなら送信前にマスク |
 | 回答で個人情報を見せたくない | 出力側のBedrock Guardrailsと、ツール出力・ファイル内容の検査 |
 | Bedrockのログに原文を残したくない | モデル呼び出しログを有効にしない。またはBedrockへ送る前に入力をマスク |
 | ログを見る人に原文を見せたくない | CloudWatch Logsのデータ保護と閲覧権限 |
@@ -163,3 +235,5 @@ AWSのAmazon Bedrock紹介ページは、Bedrockがデータをモデル学習�
 [^retention]: [データ保持 — Amazon Bedrock](https://docs.aws.amazon.com/ja_jp/bedrock/latest/userguide/data-retention.html)。AWS側の推論データ保持が、モデル・設定によって異なる点を確認。
 [^deployment]: [データ保護 — Amazon Bedrock](https://docs.aws.amazon.com/ja_jp/bedrock/latest/userguide/data-protection.html)。モデルはAWSが所有・運用するModel Deployment Accountへ配置され、モデル提供元はその環境や入力・出力へアクセスできないことを確認。
 [^billing]: [モデルへのアクセスをリクエストする — Amazon Bedrock](https://docs.aws.amazon.com/ja_jp/bedrock/latest/userguide/model-access.html)。第三者モデルのAWS Marketplace購読とEULAを確認。
+
+[^actions]: [Options for handling harmful content detected by Amazon Bedrock Guardrails — Amazon Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-harmful-content-handling-options.html)。入力・出力ごとの動作指定と、マスク・ブロック・検出のみの違いを確認。
