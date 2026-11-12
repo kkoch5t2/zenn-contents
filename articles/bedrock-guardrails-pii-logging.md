@@ -187,12 +187,6 @@ input.inputBodyJson.messages[0].content[0].text
 
 ### トレースに残る原文を確認する
 
-:::message
-**補足：トレースとは？**
-
-ここでいうトレースは、**ガードレールが何を検出し、どう処理したかを示す評価結果**です。Converse APIのレスポンスには、検出した元の値（`match`）や、マスクなどの処理結果（`action`）を含められます。CloudWatch LogsやS3へ保存するモデル呼び出しログとは別の情報です。[^sensitive]
-:::
-
 今回、マスクが成功したConverse APIのトレースにも、検出結果の`match`として、元のメールアドレスが含まれていました。
 
 ```json
@@ -205,6 +199,12 @@ input.inputBodyJson.messages[0].content[0].text
 ```
 
 このため、**APIレスポンスのトレースをアプリ側でそのままログに出す場合も、原文の扱いを確認する必要があります**。
+
+:::message
+**補足：トレースとは？**
+
+ここでいうトレースは、**ガードレールが何を検出し、どう処理したかを示す評価結果**です。Converse APIのレスポンスには、検出した元の値（`match`）や、マスクなどの処理結果（`action`）を含められます。CloudWatch LogsやS3へ保存するモデル呼び出しログとは別の情報です。[^sensitive]
+:::
 
 ## CloudWatch Logsでログ表示をマスクする
 
