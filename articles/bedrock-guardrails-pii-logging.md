@@ -119,7 +119,12 @@ flowchart TD
 
 :::details 入力と回答をマスクするAPI設定例
 
-入力用の`inputAction`と回答用の`outputAction`を、どちらも`ANONYMIZE`（マスク）に設定しました。以下はメールアドレス（EMAIL）の例です。氏名（NAME）にも同じ設定を使いました。[^actions]
+コンソールでは「機密情報フィルターを追加」→「新しいPIIを追加」で、入力と回答の動作を指定できます。
+
+![BedrockのPII設定でInput actionとOutput actionを両方マスクにしたキャプチャー](/images/bedrock-guardrails-pii-logging/10-input-output-mask-settings.jpg)
+*Input actionが入力、Output actionが回答の設定です。両方のEnableをオン、動作を「マスク」にした保存前の設定例です。*
+
+APIでは、入力用の`inputAction`と回答用の`outputAction`を、どちらも`ANONYMIZE`（マスク）に設定しました。以下はメールアドレス（EMAIL）の例です。氏名（NAME）にも同じ設定を使いました。[^actions]
 
 ```json
 {
