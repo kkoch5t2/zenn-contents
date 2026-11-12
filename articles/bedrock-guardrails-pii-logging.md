@@ -137,7 +137,7 @@ APIでは、入力用の`inputAction`と回答用の`outputAction`を、どち�
 }
 ```
 
-この設定で、ApplyGuardrailの入力・回答の両方がマスクされました。Converse APIでも、トレースの入力評価が`ANONYMIZED`（マスク実行済み）になることを確認しています。今回のリージョンと、ガードレールの作業中バージョン（DRAFT）での検証結果です。
+この設定で、ApplyGuardrailの入力・回答の両方がマスクされました。Converse APIでも、トレースの入力評価が`ANONYMIZED`（マスク実行済み）になることを確認しています。
 :::
 
 ただし、**元の入力はBedrock Guardrails（AWSサーバー）には届きます**。「AWSへ送る前に個人情報を消したい」場合は、送信する側で先にマスクします。
