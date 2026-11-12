@@ -20,20 +20,21 @@ published: true
 | --- | --- |
 | ユーザー → モデル | 入力中の個人情報をマスクできる |
 | モデル → ユーザー | 回答中の個人情報をマスクできる |
-| ユーザー → Bedrockの呼び出しログ | ログを有効にすると、指定したCloudWatch LogsのロググループかS3バケットに**入力の原文**が記録される |
+| ユーザー → Bedrockの呼び出しログ | テキストの記録を有効にすると、指定したCloudWatch LogsのロググループかS3バケットに**入力の原文**が記録される |
 
-つまり、**Bedrock Guardrailsでモデルへの入力をマスクしても、Bedrockのログまでマスクされるわけではありません**。なお、個人情報の検出に漏れがないという保証もありません。[^sensitive]
+つまり、**Bedrock Guardrailsでモデルへの入力をマスクしても、記録対象にしたテキストのログまでマスクされるわけではありません**。テキスト本文を記録したくない場合は、モデル呼び出しログ全体を止めるほかに、**「テキスト」だけをオフにする方法もあります**。なお、個人情報の検出に漏れがないという保証もありません。[^sensitive]
 
 :::details 今回の検証条件
 | 項目 | 条件 |
 | --- | --- |
 | 検証日 | 2026年11月13日 |
 | リージョン | シドニー（ap-southeast-2） |
-| モデル | Amazon Nova Micro（amazon.nova-micro-v1:0） |
+| モデル | Amazon Nova Micro（amazon.nova-micro-v1:0）。テキスト記録の切替はNova Lite（amazon.nova-lite-v1:0）でも追加検証 |
 | 対象の機密情報 | 組み込みPIIのNAME・EMAIL |
 | API | ApplyGuardrail、Converse |
 | ログ保存先 | 専用のCloudWatch LogsロググループとS3バケット |
 | ログのデータ保護 | 検証用ロググループにEmailAddressのポリシーを適用 |
+| テキストの記録 | マスク・ブロック検証時はオン。オフにした場合もS3への追加検証で確認 |
 
 氏名・メールアドレスはすべて架空の値です。キャプチャーは同じ設定で再実行して撮影し、アカウント情報が写らない範囲を掲載しています。検証後はモデル呼び出しログの設定を元に戻し、作成したリソースを削除しました。
 :::
@@ -50,7 +51,7 @@ flowchart TD
     B -.-> L["🗄️ 呼び出しログ"]
 ```
 
-点線は、Bedrockの「モデル呼び出しログ記録」を有効にした場合だけ発生します。この設定は初期状態では無効です。[^logging]
+点線は、Bedrockの「モデル呼び出しログ記録」を有効にした場合だけ発生します。この設定は初期状態では無効です。以下の原文が残る例では、ログに含めるデータ種類の「テキスト」も有効にしています。[^logging]
 
 ### Bedrockのログはどこに保存される？
 
@@ -63,6 +64,26 @@ flowchart TD
 **保存先を選んでログを有効にする場所は、CloudWatch LogsもS3もBedrockの設定画面です。** IAMでログのオン・オフを設定するわけではありません。CloudWatch Logsへ出す場合、Bedrockがロググループへ書き込めるIAMロールが別途必要です。S3へ出す場合は、Bedrockがバケットへ書き込めるバケットポリシーが必要です。AWS公式手順では、設定者に所定のS3権限があれば、バケットポリシーは設定時に自動で追加されると説明しています。[^logging]
 
 例えばCloudWatch Logsを選び、ロググループを`/aws/bedrock/my-invocations`と名付ければ、そこにログが入ります。この名前は例で、固定名ではありません。CloudWatch Logsを選んでも、大きな本文の保存先としてS3を別途設定する構成があります。[^logging]
+
+#### ログ全体とテキスト本文の記録は別に切り替えられる
+
+設定画面には、「モデル呼び出しのログ記録」全体のスイッチと、「ログに含めるデータタイプ」のチェック項目があります。**テキストの入出力本文を保存したくないだけなら、ログ全体をオンにしたまま「テキスト」をオフにする方法があります**。APIでは`textDataDeliveryEnabled: false`に対応します。[^logging-config]
+
+![モデル呼び出しログを有効にしたままテキストのチェックを外す設定例](/images/bedrock-guardrails-pii-logging/05-logging-data-types.png)
+*「モデル呼び出しのログ記録」はオン、「テキスト」はオフにした設定例です。「イメージ」「埋め込み」「ビデオ」はそれぞれ別のチェック項目です。*
+
+この違いもS3への出力で追加検証しました。「テキスト」をオフ、「イメージ」「埋め込み」「ビデオ」をオンにして、テキスト専用のNova Microと、画像を扱えるNova Liteを呼び出しています。ログ設定だけの挙動を比較するため、この追加検証ではGuardrailsを指定していません。
+
+| 実際に試した条件 | 入出力のテキスト本文 | メタデータ |
+| --- | --- | --- |
+| テキストON・Nova Micro・テキスト入力 | 記録された | 記録された |
+| テキストOFF・Nova Micro・テキスト入力 | 記録されなかった | 記録された |
+| テキストOFF・Nova Lite・テキスト入力 | 記録されなかった | 記録された |
+| テキストOFF・Nova Lite・画像＋テキスト入力 | 記録されなかった | 記録された |
+
+テキストOFFの3件では、`inputBodyJson`・`outputBodyJson`がログになく、呼び出し日時・リクエストID・モデルID・トークン数などは残っていました。S3に配信された各オブジェクトも調べ、入力した架空のメールアドレスが含まれないことを確認しています。
+
+つまり、**テキストOFFは、本文の記録を止めながら呼び出し情報を残すために使えます**。画像・動画・埋め込みなども保存したくない場合は、それぞれのデータ種類も確認します。メタデータを含めてモデル呼び出しログ全体が不要なら、全体のスイッチをオフにします。
 
 ### ① モデルへの入力と回答はマスクできる
 
@@ -123,9 +144,9 @@ Bedrockコンソールで「Use ApplyGuardrail API」を有効にし、評価対
 > **補足：Bedrockのモデルはどこで動く？**  
 > Bedrockでは、Amazon NovaなどのAWS製モデルと、Claudeなど外部企業が開発したモデルを利用できます。外部モデルも提供会社のAPIへ入力を転送するのではなく、AWSが所有・運用する専用環境に配置されます。そのため、モデル提供会社はBedrockの入力や回答にアクセスできません。第三者モデルの一部はAWS Marketplace経由で課金されます。契約や料金の仕組みはモデルによって異なります。[^deployment][^billing]
 
-### ② 呼び出しログには原文が残る
+### ② テキストの記録が有効なら呼び出しログに原文が残る
 
-AWSは、Bedrock Guardrailsを適用しても、CloudWatch Logsのモデル呼び出しログの`input`には、加工前のリクエストが記録されると説明しています。[^sensitive] また、AWS公式Security Blogの[「Implementing least privilege access for Amazon Bedrock」](https://aws.amazon.com/blogs/security/implementing-least-privilege-access-for-amazon-bedrock/)でも、CloudWatch Logs・S3のログにはガードレール適用前の入力が含まれると説明されています。
+テキストの記録を有効にした場合、Bedrock Guardrailsを適用しても、CloudWatch Logsのモデル呼び出しログの`input`には、加工前のリクエストが記録されます。[^sensitive] また、AWS公式Security Blogの[「Implementing least privilege access for Amazon Bedrock」](https://aws.amazon.com/blogs/security/implementing-least-privilege-access-for-amazon-bedrock/)でも、CloudWatch Logs・S3のログにはガードレール適用前の入力が含まれると説明されています。
 
 #### 入力をマスクしてもログには原文が記録された
 
@@ -187,7 +208,7 @@ CloudWatch Logsには「データ保護ポリシー」という機能があり�
 
 実際に、ポリシー設定前に取り込まれたログは、設定後も通常表示で原文が見えました。また、設定直後にはマスクされなかったログもあったため、新しく投入したテスト用ログがマスクされることを確認してから、Bedrockを再度呼び出しています。
 
-呼び出しログに原文を残したくないなら、**ログを有効にしない**か、**Bedrockへ送る前に入力をマスクする**ことを検討します。
+テキストの原文を呼び出しログに残したくないなら、**ログに含めるデータ種類の「テキスト」をオフにする**か、**Bedrockへ送る前に入力をマスクする**ことを検討します。メタデータも含めてモデル呼び出しログを残す必要がなければ、ログ全体を無効にする選択肢もあります。
 
 ## 「学習に使われない」ならBedrock Guardrailsは不要？
 
@@ -220,11 +241,12 @@ AWSのAmazon Bedrock紹介ページは、Bedrockがデータをモデル学習�
 | --- | --- |
 | モデルに個人情報を渡したくない | 入力側のBedrock Guardrailsでマスク動作を指定し、入力評価まで確認。AWSへの送信自体を避けるなら送信前にマスク |
 | 回答で個人情報を見せたくない | 出力側のBedrock Guardrailsと、ツール出力・ファイル内容の検査 |
-| Bedrockのログに原文を残したくない | モデル呼び出しログを有効にしない。またはBedrockへ送る前に入力をマスク |
+| Bedrockのログにテキストの原文を残したくない | ログに含めるデータ種類の「テキスト」をオフにする。またはBedrockへ送る前に入力をマスク |
+| メタデータも含めてモデル呼び出しログが不要 | モデル呼び出しログ全体を無効にする |
 | ログを見る人に原文を見せたくない | CloudWatch Logsのデータ保護と閲覧権限 |
 | AWS側でも保持させたくない | 対象モデルのデータ保持モード |
 
-覚えておきたいのは一つだけ。**Bedrock Guardrailsでマスクしても、ログに残る原文まで消えるわけではない**、ということです。
+**Bedrock Guardrailsでマスクしても、記録対象にしたテキストのログから原文まで消えるわけではありません**。入力のマスクと、どのデータ種類をログに含めるかは、それぞれ設定します。
 
 ## 参照したAWS公式ドキュメント
 
@@ -237,3 +259,5 @@ AWSのAmazon Bedrock紹介ページは、Bedrockがデータをモデル学習�
 [^billing]: [モデルへのアクセスをリクエストする — Amazon Bedrock](https://docs.aws.amazon.com/ja_jp/bedrock/latest/userguide/model-access.html)。第三者モデルのAWS Marketplace購読とEULAを確認。
 
 [^actions]: [Options for handling harmful content detected by Amazon Bedrock Guardrails — Amazon Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-harmful-content-handling-options.html)。入力・出力ごとの動作指定と、マスク・ブロック・検出のみの違いを確認。
+
+[^logging-config]: [LoggingConfig — Amazon Bedrock API Reference](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_LoggingConfig.html)。textDataDeliveryEnabledなど、データ種類ごとのログ配信設定を確認。
