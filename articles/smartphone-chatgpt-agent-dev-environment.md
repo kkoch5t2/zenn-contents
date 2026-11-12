@@ -1,5 +1,5 @@
 ---
-title: "スマホでバイブコーディング"
+title: "スマホからバイブコーディング"
 emoji: "📱"
 type: "idea"
 topics: ["AIエージェント", "chatgpt", "mcp", "個人開発", "ubuntu"]
