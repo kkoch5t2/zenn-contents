@@ -1,5 +1,5 @@
 ---
-title: "Amazon Data FirehoseのDirect PUT料金を安く抑える方法"
+title: "Amazon Data Firehoseのコスト節約方法"
 emoji: "🔥"
 type: "tech"
 topics: ["aws", "firehose", "s3", "cloudwatch", "python"]
