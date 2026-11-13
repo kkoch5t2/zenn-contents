@@ -203,6 +203,9 @@ def line(run_id, seq):
 
 ### CloudWatchとS3の実測結果
 
+![初回の1分間検証のCloudWatch実測。Aは60レコード、Bは1レコード、入力は双方12KB](/images/firehose-direct-put-cost/captures/07-cloudwatch-live.jpg)
+*初回の検証時間帯をCloudWatchで表示したキャプチャです。合計（Sum）でAは60レコード、Bは1レコード、入力は両方12 KB（12,000 B）でした。画面の時刻はUTCです。*
+
 | 確認項目 | A：1行ずつ（リアルタイム送信） | B：60行を連結（60秒分をまとめて送信） |
 |---|---:|---:|
 | 元のログ行数 | 60 | 60 |
@@ -211,9 +214,6 @@ def line(run_id, seq):
 | S3で確認できたユニーク行数 | 60 | 60 |
 | 欠損／重複／不正行 | 0／0／0 | 0／0／0 |
 | 課金対象量の計算値 | 307,200 B | 15,360 B |
-
-![初回の1分間検証のCloudWatch実測。Aは60レコード、Bは1レコード、入力は双方12KB](/images/firehose-direct-put-cost/captures/07-cloudwatch-live.jpg)
-*初回の検証時間帯をCloudWatchで表示したキャプチャです。合計（Sum）でAは60レコード、Bは1レコード、入力は両方12 KB（12,000 B）でした。画面の時刻はUTCです。*
 
 ここでの「リアルタイム送信」は、生成したログをその都度Firehoseへ送るという意味です。S3への保存には、別途Firehose側の配信待ち時間があります。
 
