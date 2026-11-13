@@ -10,6 +10,8 @@ published: false
 
 プロキシなどのアクセスログをAmazon Data Firehose経由でS3へ保存するとき、ログを1行ずつ送る場合と、送信側で複数行をまとめる場合では、取り込み料金はどのくらい変わるのでしょうか。
 
+本記事では、**Direct PUTで受け付けたデータを、変換なしでS3へ保存する構成の取り込み料金**を検証します。
+
 今回は、1行200バイトの架空ログを使い、**発生したログを1行ずつ送る方式**と、**送信側で60秒間ためてからまとめて送る方式**をシドニーリージョンで比較しました。1分間の動作確認では毎秒1行を生成したため、60秒分をためた結果が60行になります。
 
 料金確認用の100万行では、同じレコードサイズで比較するために60行単位で連結し、60秒の待機は省略しています。
@@ -105,7 +107,7 @@ AWS公式FAQでも、切り上げはAPI呼び出し単位ではなく、レコ�
 Firehose側の配信間隔を長くしても、1行ずつ受け付けたレコードが料金上の1レコードになるわけではありません。
 
 :::message
-S3配信で使う`BufferingHints`のデフォルトは300秒・5 MiBです。今回は両ストリームを60秒・5 MiBに設定しました。これらは配信タイミングの目安であり、「必ず60秒以内にS3へ届く」という保証ではありません。Bでは、送信側でためる最大約60秒に、Firehose側の配信待ちも加わります。[^buffer]
+S3配信で使う`BufferingHints`のデフォルトは300秒・5 MiBです。今回は両ストリームを60秒・5 MiBに設定しました。時間またはサイズのどちらかが先に条件に達すると、S3への配信を開始します。ただし、これらは配信タイミングの目安であり、「必ず60秒以内にS3へ届く」という保証ではありません。Bでは、送信側でためる最大約60秒に、Firehose側の配信待ちも加わります。[^buffer]
 :::
 
 ## 3. FirehoseとS3を設定する
@@ -371,7 +373,7 @@ Firehose APIにはレコードサイズ・リクエストサイズの上限も�
 
 [^rounding]: [AWS公式：Firehoseのクォータ（5 KB＝5,120バイトの切り上げ）](https://docs.aws.amazon.com/firehose/latest/dev/limits.html)
 [^batch]: [AWS公式：Firehose FAQ（PutRecordBatchの切り上げ単位）](https://aws.amazon.com/firehose/faqs/)
-[^buffer]: [AWS公式：BufferingHints](https://docs.aws.amazon.com/firehose/latest/APIReference/API_BufferingHints.html)
+[^buffer]: [AWS公式：BufferingHints](https://docs.aws.amazon.com/firehose/latest/APIReference/API_BufferingHints.html)、[AWS公式：Configure buffering hints](https://docs.aws.amazon.com/firehose/latest/dev/create-configure-backup.html#buffering-hints)
 [^metrics]: [AWS公式：CloudWatchメトリクスによるFirehoseのモニタリング](https://docs.aws.amazon.com/firehose/latest/dev/monitoring-with-cloudwatch-metrics.html)
 [^login]: [AWS公式：Login credentials provider](https://docs.aws.amazon.com/sdkref/latest/guide/feature-login-credentials.html)
 [^limits]: [AWS公式：PutRecordBatch API](https://docs.aws.amazon.com/firehose/latest/APIReference/API_PutRecordBatch.html)
