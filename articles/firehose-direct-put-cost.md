@@ -3,7 +3,7 @@ title: "Amazon Data Firehoseのコスト節約を検証"
 emoji: "🔥"
 type: "tech"
 topics: ["aws", "firehose", "s3", "cloudwatch", "python"]
-published: false
+published: true
 ---
 
 業務でAmazon Data Firehoseを使うことになりました。ただ、高額請求に関する記事も見かけたため、料金面に不安を感じ、運用を始める前にきちんと検証しておこうと思いました。
