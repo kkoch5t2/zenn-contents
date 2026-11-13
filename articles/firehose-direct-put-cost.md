@@ -212,6 +212,9 @@ def line(run_id, seq):
 | 欠損／重複／不正行 | 0／0／0 | 0／0／0 |
 | 課金対象量の計算値 | 307,200 B | 15,360 B |
 
+![初回の1分間検証のCloudWatch実測。Aは60レコード、Bは1レコード、入力は双方12KB](/images/firehose-direct-put-cost/captures/07-cloudwatch-live.jpg)
+*初回の検証時間帯をCloudWatchで表示したキャプチャです。合計（Sum）でAは60レコード、Bは1レコード、入力は両方12 KB（12,000 B）でした。画面の時刻はUTCです。*
+
 ここでの「リアルタイム送信」は、生成したログをその都度Firehoseへ送るという意味です。S3への保存には、別途Firehose側の配信待ち時間があります。
 
 CloudWatchでは、実行全体を含む時間範囲を選び、統計を`Sum`で確認します。`IncomingBytes`は受け付けた実際のバイト数で、切り上げ後の課金対象量ではありません。[^metrics]
