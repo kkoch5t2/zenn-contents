@@ -50,7 +50,7 @@ MCPは、AIが外部のツールを呼び出すための仕組みです。redeco
 
 ![スマホからセキュリティチェックを依頼し、redeco経由でUbuntuのコードやテストを調査して結果を報告する流れ](/images/redeco-security-check-flow-20261030.webp)
 
-こちらは、Routiaの公開前セキュリティチェックをChatGPT Workに依頼したときの実際の画面です。赤枠の部分に、redeco経由で実行した操作の履歴が表示されています。
+こちらは、開発中アプリの公開前セキュリティチェックをChatGPT Workに依頼したときの実際の画面です。赤枠の部分に、redeco経由で実行した操作の履歴が表示されています。
 
 ![ChatGPT WorkでRoutiaの公開前セキュリティチェックを行った実際の操作履歴。赤枠はredecoによるコマンド実行と検証](/images/redeco-security-check-screenshot-20261030.webp)
 
