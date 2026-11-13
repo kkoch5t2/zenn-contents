@@ -1,5 +1,5 @@
 ---
-title: "Amazon Data Firehoseのコスト節約方法"
+title: "Amazon Data Firehoseのコスト節約を検証"
 emoji: "🔥"
 type: "tech"
 topics: ["aws", "firehose", "s3", "cloudwatch", "python"]
