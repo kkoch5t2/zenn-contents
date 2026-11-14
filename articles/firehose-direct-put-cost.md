@@ -346,6 +346,14 @@ A / B ≒ 20
 
 また、送信側のメモリだけに蓄積すれば、プロセス停止時に未送信ログを失う可能性があります。今回のスクリプトは有限の技術検証用であり、ディスクへの退避、再起動時の復旧、送信確認後の削除といった、ログ収集基盤としての永続化機能は実装していません。
 
+:::message
+**実運用ではAmazon Kinesis Agentも選択肢**
+
+Squidなどのログファイルを継続的にFirehoseへ送る場合は、EC2などのLinuxサーバーにAmazon Kinesis Agentをインストールして利用する方法もあります。ログのローテーションへの対応、読み取り位置の記録、送信失敗時の再試行といった既存機能を利用できるため、Pythonでログ収集・送信処理を一から自作する場合に比べ、実装や保守にかかるコストを抑えやすくなります。[^agent]
+
+複数行を集約する`aggregatedRecordSizeBytes`も設定できます。デフォルトは`0`（集約なし）のため、取り込み料金の削減を狙う場合は、送信前の集約設定も確認します。[^agent-config]
+:::
+
 ### 「何行まとめるか」はログの実サイズで変わる
 
 200バイトを60行という条件で約95%削減になりましたが、ログの長さやまとめる行数が変われば、効果も変わります。5 KiBの切り上げ境界をまたぐため、まとめた量に対して料金が滑らかに変化するわけではありません。
@@ -373,3 +381,5 @@ Firehose APIにはレコードサイズ・リクエストサイズの上限も�
 
 [^s3delivery]: [AWS公式：Understand data delivery in Amazon Data Firehose](https://docs.aws.amazon.com/firehose/latest/dev/basic-deliver.html)
 
+[^agent]: [AWS公式：Kinesis AgentによるFirehoseへの送信](https://docs.aws.amazon.com/firehose/latest/dev/writing-with-agents.html)
+[^agent-config]: [AWS公式：Kinesis Agentの設定項目](https://docs.aws.amazon.com/firehose/latest/dev/agent-config-settings.html)
